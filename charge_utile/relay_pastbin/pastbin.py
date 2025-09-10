@@ -1,25 +1,34 @@
 import time
-
 import requests
 import xml.etree.ElementTree as ET
 import subprocess
+import os
+from dotenv import load_dotenv
 
-API_KEY = "API"  # ok pour perso
-USER = "USER"
-PASSWORD = "MDP"     # ok pour perso
+dotenv_path = os.path.join(os.path.dirname(__file__), "../..", "backend", ".env")
+load_dotenv(dotenv_path)
+API_KEY = os.getenv("API_KEY", "clé-si-pas-la")
+USER = os.getenv("USER_PAST", "user")
+PASSWORD = os.getenv("PASSWORD", "password")
 
 find = False
 
-# 1) Login -> api_user_key
-r = requests.post("https://pastebin.com/api/api_login.php", data={
-    "api_dev_key": API_KEY,
-    "api_user_name": USER,
-    "api_user_password": PASSWORD
-})
-r.raise_for_status()
-api_user_key = r.text.strip()
-print("api_user_key:", api_user_key)
+def generate_user_key(API_KEY, USER, PASSWORD):
+    r = requests.post("https://pastebin.com/api/api_login.php", data={
+        "api_dev_key": API_KEY,
+        "api_user_name": USER,
+        "api_user_password": PASSWORD
+    })
+    r.raise_for_status()
+    api_user_key = r.text.strip()
+    return api_user_key
+
+
+
 while not find:
+    # 1) Login -> api_user_key
+    api_user_key = generate_user_key(API_KEY, USER, PASSWORD)
+
     # 2) Récupère la liste (jusqu'à 50) et sélectionne le VRAI dernier par date
     r = requests.post("https://pastebin.com/api/api_post.php", data={
         "api_dev_key": API_KEY,
@@ -50,12 +59,13 @@ while not find:
             print("pas trouvé")
 
     print("no paste find")
-    time.sleep(600)
+    time.sleep(10)
 
 
 
 print(f"Dernier paste: key={paste_key}, title={nom_past}, ts={latest_ts}")
 
+api_user_key = generate_user_key(API_KEY, USER, PASSWORD)
 # 3) Récupère le contenu du dernier paste
 resp = requests.post("https://pastebin.com/api/api_raw.php", data={
     "api_dev_key": API_KEY,
