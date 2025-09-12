@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch} from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'; // N'oubliez pas d'importer le router
 
 
@@ -23,10 +23,16 @@ async function listener(e: Event, valeur: AffichageType): Promise<void> {
 const nom = ref('')
 const host = ref('')
 const port = ref<number | null>(null)
+const type = ref('')
 const hostError = ref('')
 const portError = ref('')
+const typeError = ref('')
+
+const isPastbin = computed(() => type.value === 'Pastbin')
+const isShell = computed(() => type.value === 'reverse shell')
 
 const validateHost = () => {
+  if (!isPastbin.value) { hostError.value = ''; return true }
   const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/
   const hostnameRegex = /^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])*$/
 
@@ -45,16 +51,40 @@ const validateHost = () => {
 }
 
 const validatePort = () => {
+  if (!isShell.value) { portError.value = ''; return true }
   if (port.value === null) {
     portError.value = 'Le port est requis'
     return false
   }
 
+  portError.value = ''
   return true
 }
+const validateType = () => {
+  if (type.value === '') {
+    typeError.value = 'Le type est requis'
+    return false
+  }
+  else {
+    typeError.value = ''
+    return true
+  }
+}
 
+watch(type, (nv) => {
+  validateType()
+  if (nv === 'Pastbin') { port.value = null; portError.value = '' }
+  if (nv === 'reverse shell') { host.value = ''; hostError.value = '' }
+})
 
 async function Submit() {
+  const ok =
+    validateType() &
+    (isPastbin.value ? +validateHost() : 1) &
+    (isShell.value ? +validatePort() : 1)
+
+  if (!ok) return
+
   const token = sessionStorage.getItem('token');
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/listener`, {
@@ -65,8 +95,9 @@ async function Submit() {
       },
       body: JSON.stringify({
         nom: nom.value,
-        host: host.value,
-        port: port.value,
+        host: isPastbin.value ? host.value : '',   // toujours envoyé
+        port: isShell.value ? port.value : null,  // toujours envoyé
+        type: type.value,
       })
     })
   }
@@ -175,30 +206,35 @@ const Submit_delete = async (shell: Shell) => {
             />
           </div>
 
-
           <div class="form-group">
+            <label>type connexion</label>
+            <select v-model="type" @input="validateType" class="form-control" required>
+              <option value=""></option>
+              <option value="Pastbin">Pastbin</option>
+              <option value="reverse shell">reverse shell</option>
+            </select>
+            <small v-if="typeError" class="error-message">{{ typeError }}</small>
+          </div>
 
-            <label for="host">Host</label>
+          <div class="form-group" v-if="isPastbin">
+            <label for="host">url</label>
             <input
               id="host"
               v-model="host"
               type="text"
-              required
               class="form-control"
               placeholder="localhost ou 127.0.0.1"
-              pattern="^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])*$|^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
               @input="validateHost"
             />
             <small v-if="hostError" class="error-message">{{ hostError }}</small>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" v-if="isShell">
             <label for="port">Port</label>
             <input
               id="port"
               v-model="port"
               type="number"
-              required
               min="0"
               max="65535"
               class="form-control"
@@ -291,7 +327,4 @@ const Submit_delete = async (shell: Shell) => {
 .bouton:hover {
     background-color: #b388ff;
 }
-
-
-
 </style>

@@ -4,7 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a3b133b5-4b39-423d-a005-e2e317ec014e" name="Changes" comment="le payload pastbin avance" />
+    <list default="true" id="a3b133b5-4b39-423d-a005-e2e317ec014e" name="Changes" comment="le payload pastbin avance">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/DB/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/DB/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/DB/db.db" beforeDir="false" afterPath="$PROJECT_DIR$/backend/DB/db.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/routes/dashboard/shell.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/routes/dashboard/shell.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/routes/dashboard/terminal.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/routes/dashboard/terminal.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/dashboard/paramtre.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/dashboard/paramtre.vue" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -55,8 +62,10 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;Python.__init__.executor&quot;: &quot;Run&quot;,
     &quot;Python.app.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.pastbin.executor&quot;: &quot;Run&quot;,
     &quot;Python.test_class_shell.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
@@ -80,7 +89,7 @@
     ]
   }
 }</component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.app">
     <configuration name="__init__" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="C2" />
       <option name="ENV_FILES" value="" />
@@ -113,8 +122,9 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.12 (C2)" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
@@ -150,6 +160,11 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.main" />
+      <item itemvalue="Python.__init__" />
+      <item itemvalue="Python.app" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.app" />
@@ -192,6 +207,11 @@
       <workItem from="1757399014283" duration="3067000" />
       <workItem from="1757404430715" duration="6084000" />
       <workItem from="1757421228728" duration="2777000" />
+      <workItem from="1757428038865" duration="587000" />
+      <workItem from="1757487066167" duration="11568000" />
+      <workItem from="1757572033709" duration="50000" />
+      <workItem from="1757583186029" duration="204000" />
+      <workItem from="1757658739055" duration="9733000" />
     </task>
     <task id="LOCAL-00001" summary="toujours la, pas de vancance&#10;et j'ai perdu mon drone">
       <option name="closed" value="true" />
@@ -241,7 +261,23 @@
       <option name="project" value="LOCAL" />
       <updated>1757422225274</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="le payload pastbin avance">
+      <option name="closed" value="true" />
+      <created>1757428235206</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1757428235206</updated>
+    </task>
+    <task id="LOCAL-00008" summary="le payload pastbin avance">
+      <option name="closed" value="true" />
+      <created>1757508354230</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1757508354230</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -266,9 +302,10 @@
     <option name="LAST_COMMIT_MESSAGE" value="le payload pastbin avance" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/C2$pastbin.coverage" NAME="pastbin Coverage Results" MODIFIED="1757420124212" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/charge_utile/relay_pastbin" />
+    <SUITE FILE_PATH="coverage/C2$pastbin.coverage" NAME="pastbin Coverage Results" MODIFIED="1757508010183" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/charge_utile/relay_pastbin" />
     <SUITE FILE_PATH="coverage/C2$__init__.coverage" NAME="__init__ Coverage Results" MODIFIED="1753258756958" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/DB" />
-    <SUITE FILE_PATH="coverage/C2$app.coverage" NAME="app Coverage Results" MODIFIED="1757056265013" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
-    <SUITE FILE_PATH="coverage/C2$test_class_shell.coverage" NAME="test_class_shell Coverage Results" MODIFIED="1757324330979" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/charge_utile/relay_pastbin" />
+    <SUITE FILE_PATH="coverage/C2$test_class_shell.coverage" NAME="test_class_shell Coverage Results" MODIFIED="1757508008008" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/charge_utile/relay_pastbin" />
+    <SUITE FILE_PATH="coverage/C2$app.coverage" NAME="app Coverage Results" MODIFIED="1757668745989" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/C2$main.coverage" NAME="main Coverage Results" MODIFIED="1757487303093" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
