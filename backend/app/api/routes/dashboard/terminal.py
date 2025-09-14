@@ -43,12 +43,11 @@ def terminal_command():
 def listener_command():
     data = request.get_json()
     nom = data['nom']
-    host = data['host']
     port = data['port']
     types = data['type']
     print(types)
-    if types == "shell":
-        shell_temp[nom] = Shell(host, port)
+    if types == "reverse shell":
+        shell_temp[nom] = Shell(port)
         print("nom :", nom)
         if shell_temp[nom].listen():
             instances[nom] = shell_temp[nom]

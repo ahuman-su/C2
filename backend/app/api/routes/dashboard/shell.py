@@ -11,8 +11,7 @@ PORT = 4444
 
 
 class Shell:
-    def __init__(self,ip, port):
-        self.ip = ip
+    def __init__(self, port):
         self.port = port
 
     def listen(self):
