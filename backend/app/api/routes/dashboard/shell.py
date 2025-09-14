@@ -47,7 +47,7 @@ class Pastbin:
         self.num_commande = 1
         self.nom = nom
 
-    def generate_user_key(API_KEY, USER, PASSWORD):
+    def generate_user_key(self, API_KEY, USER, PASSWORD):
         r = requests.post("https://pastebin.com/api/api_login.php", data={
             "api_dev_key": API_KEY,
             "api_user_name": USER,
@@ -57,9 +57,10 @@ class Pastbin:
         api_user_key = r.text.strip()
         return api_user_key
 
-    def envoie_commande(self,commande):
+    def execute(self,commande):
         # 1) Login -> api_user_key
         api_user_key = self.generate_user_key(self.API_KEY, self.USER, self.PASSWORD)
+        print(api_user_key)
         # 2) crée le paste
 
         paste_url = "https://pastebin.com/api/api_post.php"
@@ -78,7 +79,7 @@ class Pastbin:
         print("URL du paste:", response.text)
 
         # recupére les dernier reponse et verifie que c'est le bon'
-        while not find:
+        while not self.find:
             # refaire la user_key
             api_user_key = self.generate_user_key(self.API_KEY, self.USER, self.PASSWORD)
 
@@ -106,7 +107,11 @@ class Pastbin:
                 nom_past = latest_item.findtext("paste_title") or "Sans titre"
 
                 if nom_past != "Sans titre" and nom_past.find("_reponse") != -1:
-                    find = True
+                    t = nom_past.split("_")
+                    print(t)
+                    if len(t) > 3:
+                        if t[3] == self.nom:
+                            self.find = True
                 else:
                     print("pas trouvé")
 

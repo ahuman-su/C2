@@ -10,7 +10,7 @@ load_dotenv(dotenv_path)
 API_KEY = os.getenv("API_KEY", "clé-si-pas-la")
 USER = os.getenv("USER_PAST", "user")
 PASSWORD = os.getenv("PASSWORD", "password")
-NOM_SHELL = "test"
+NOM_SHELL = "test2"
 
 find = False
 

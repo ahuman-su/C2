@@ -142,7 +142,7 @@ def save_shell_to_db(user_id, nom, type):
 
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.execute("""
-                   INSERT INTO shell (id_proprietaire, nom, type)
+                   INSERT INTO shell (id_proprietaire, nom, type_shell)
                    VALUES (?, ?, ?)
                    """, (user_id, nom, type))
 

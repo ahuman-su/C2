@@ -80,7 +80,6 @@ watch(type, (nv) => {
 async function Submit() {
   const ok =
     validateType() &
-    (isPastbin.value ? +validateHost() : 1) &
     (isShell.value ? +validatePort() : 1)
 
   if (!ok) return
@@ -217,15 +216,6 @@ const Submit_delete = async (shell: Shell) => {
           </div>
 
           <div class="form-group" v-if="isPastbin">
-            <label for="host">url</label>
-            <input
-              id="host"
-              v-model="host"
-              type="text"
-              class="form-control"
-              placeholder="localhost ou 127.0.0.1"
-              @input="validateHost"
-            />
             <small v-if="hostError" class="error-message">{{ hostError }}</small>
           </div>
 
