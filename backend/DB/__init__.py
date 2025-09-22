@@ -44,6 +44,7 @@ def start_db():
         id INTEGER PRIMARY KEY,
         id_proprietaire TEXT NOT NULL,
         nom TEXT NOT NULL,
+        type_shell TEXT NOT NULL,
         FOREIGN KEY (id_proprietaire) REFERENCES utilisateurs(id)
     )
     """)

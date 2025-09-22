@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint, g
 import jwt
 from backend.app.jwt_handler import verify_token, token_required
-from backend.app.api.routes.dashboard.shell import Shell
+from backend.app.api.routes.dashboard.shell import Shell, Pastbin
 from backend.DB import get_db_connection
 
 
@@ -43,34 +43,40 @@ def terminal_command():
 def listener_command():
     data = request.get_json()
     nom = data['nom']
-    host = data['host']
     port = data['port']
+    types = data['type']
+    print(types)
+    if types == "reverse shell":
+        shell_temp[nom] = Shell(port)
+        print("nom :", nom)
+        if shell_temp[nom].listen():
+            instances[nom] = shell_temp[nom]
+            del shell_temp[nom]
 
-    shell_temp[nom] = Shell(host, port)
-    print("nom :", nom)
-    if shell_temp[nom].listen():
-        instances[nom] = shell_temp[nom]
-        del shell_temp[nom]
+            user_info = g.user_data  # Données décodées du token
+            user_id =user_info["user_id"]
 
+            save_shell_to_db(user_id, nom, "shell")
+
+        else:
+            print("erreur de connexion")
+
+
+        return jsonify({"resulat": "sa fcontion"})
+
+    elif types == "Pastbin":
+        instances[nom] = Pastbin(nom)
         user_info = g.user_data  # Données décodées du token
-        user_id =user_info["user_id"]
+        user_id = user_info["user_id"]
+        save_shell_to_db(user_id, nom, "Pastbin")
+        print("nom :", nom)
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        return jsonify({"resulat": "sa fcontion"})
 
-        cursor.execute("PRAGMA foreign_keys = ON;")
-        cursor.execute("""
-                       INSERT INTO shell (id_proprietaire, nom)
-                       VALUES (?, ?)
-                       """, (user_id, nom))
-
-        conn.commit()
-        conn.close()
     else:
-        print("erreur de connexion")
-
-
-    return jsonify({"resulat": "sa fcontion"})
+        pass
+    print("erreur")
+    return jsonify({"resulat": "erreur"})
 
 
 @shells_list_bp.route('/shells_list', methods=['GET', 'POST'])
@@ -127,3 +133,17 @@ def supprimer_shell():
     conn.close()
 
     return jsonify({"resulat": "supprimer"})
+
+
+def save_shell_to_db(user_id, nom, type):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("PRAGMA foreign_keys = ON;")
+    cursor.execute("""
+                   INSERT INTO shell (id_proprietaire, nom, type_shell)
+                   VALUES (?, ?, ?)
+                   """, (user_id, nom, type))
+
+    conn.commit()
+    conn.close()

