@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import terminale from './dashboard/terminale.vue';
 import paramtre from './dashboard/paramtre.vue';
+import meteo from './dashboard/meteo.vue';
 
 import {onMounted, ref} from 'vue'
 import { checkTokenValidity } from '@/utils/auth'
@@ -25,6 +26,7 @@ onMounted(async () => {
     <terminale :message_shell="sharedMessage"/>
     <paramtre v-model="sharedMessage"/>
   </div>
+  <meteo></meteo>
 </template>
 
 <style scoped>
