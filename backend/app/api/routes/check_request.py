@@ -1,6 +1,6 @@
 from flask import request, jsonify, Blueprint
 import jwt
-from backend.app.jwt_handler import verify_token
+from app.jwt_handler import verify_token
 
 check = Blueprint('check-token', __name__)
 

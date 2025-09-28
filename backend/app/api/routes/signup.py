@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import bcrypt
-from backend.DB import get_db_connection
-from backend.app.jwt_handler import generate_token
+from DB import get_db_connection
+from app.jwt_handler import generate_token
 
 signup_bp = Blueprint('signup', __name__)
 
@@ -30,4 +30,3 @@ def signup():
     conn.close()
 
     return jsonify({"success": True, "token": generate_token(user_id=1)})
-

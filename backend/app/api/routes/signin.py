@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import bcrypt
-from backend.DB import get_db_connection
-from backend.app.jwt_handler import generate_token
+from DB import get_db_connection
+from app.jwt_handler import generate_token
 signin_bp = Blueprint('signin', __name__)
 
 @signin_bp.route('/signin', methods=['POST'])

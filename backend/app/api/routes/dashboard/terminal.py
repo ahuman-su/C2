@@ -1,8 +1,8 @@
 from flask import request, jsonify, Blueprint, g
 import jwt
-from backend.app.jwt_handler import verify_token, token_required
-from backend.app.api.routes.dashboard.shell import Shell, Pastbin, Forum
-from backend.DB import get_db_connection
+from app.jwt_handler import verify_token, token_required
+from .shell import Shell, Pastbin, Forum
+from DB import get_db_connection
 
 
 terminal = Blueprint('dashboard', __name__)

@@ -6,7 +6,7 @@ import subprocess
 # Config victime
 USER = "victime_2"          # nom de la victime (cible)
 PASSWORD = "testtest"
-IP = "192.168.1.8"
+IP = "192.168.1.179"
 PORT = 6000                 # backend du forum
 MASTER = "C2"               # émetteur attendu (doit matcher [FROM=...])
 
