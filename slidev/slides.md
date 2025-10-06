@@ -136,7 +136,8 @@ layout: center
 
 ```mermaid {scale: 0.5}
 erDiagram
-    UTILISATEURS ||--o{ SHELL : possède
+    UTILISATEURS ||--o{ SHELL : "possède (id = id_proprietaire)"
+    
     UTILISATEURS {
         int id PK
         text nom
@@ -146,12 +147,14 @@ erDiagram
         text password
         text ville
     }
+
     SHELL {
         int id PK
-        text id_proprietaire FK
+        int id_proprietaire FK  "→ UTILISATEURS.id"
         text nom
         text type_shell
     }
+
 ```
 
 </div>
@@ -613,7 +616,6 @@ class: text-sm
 
 - ⚠️ HTTPS obligatoire pour protéger les tokens.
 - ⚠️ Rate limiting sur `/signin` contre le bruteforce.
-- ⚠️ Valider les commandes avant exécution distante.
 
 </div>
 
