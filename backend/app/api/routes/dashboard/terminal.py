@@ -157,3 +157,5 @@ def save_shell_to_db(user_id, nom, type):
 
     conn.commit()
     conn.close()
+
+

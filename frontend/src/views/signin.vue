@@ -74,7 +74,7 @@ const submit_signup = async (e) => {
           <label for="password">password :</label>
           <input
             id="password"
-            type="text"
+             type="password"
             v-model="formData.password"
             required
             class="form-control"

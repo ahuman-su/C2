@@ -26,7 +26,6 @@ def signin():
     if rows is None:
         return jsonify({"success": False})
 
-    # Convert Row objects to dictionaries
     data = {"id": rows[0], "email": rows[1], "password": rows[2]}
 
     check = bcrypt.checkpw(
