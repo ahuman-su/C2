@@ -19,14 +19,14 @@ def signin():
     cursor.execute("""
                    SELECT id, email, password 
                    FROM utilisateurs 
-                   WHERE email = (?)
+                   WHERE email = (%s)
                        """, (email,))
     rows = cursor.fetchone()
 
     if rows is None:
         return jsonify({"success": False})
 
-    data = {"id": rows[0], "email": rows[1], "password": rows[2]}
+    data = {"id": rows["id"], "email": rows["email"], "password": rows["password"]}
 
     check = bcrypt.checkpw(
         password=password.encode('utf-8'),

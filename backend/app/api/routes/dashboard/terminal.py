@@ -99,11 +99,11 @@ def shells_list():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""SELECT * FROM shell WHERE id_proprietaire = ?""", (user_id,))
+    cursor.execute("""SELECT * FROM shell WHERE id_proprietaire = %s""", (user_id,))
 
     rows = cursor.fetchall()
     for i in rows:
-        shells.append(dict(i))
+        shells.append(i)
 
     print(shells)
 
@@ -118,22 +118,22 @@ def supprimer_shell():
     id = data["id"]
 
     user_data = g.user_data
-    user_id = str(user_data["user_id"])
+    user_id = user_data["user_id"]
 
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""SELECT * FROM shell WHERE id = ? and id_proprietaire = ?""", (id, user_id,))
+    cursor.execute("""SELECT * FROM shell WHERE id = %s and id_proprietaire = %s""", (id, user_id,))
 
     rows = cursor.fetchone()
     if rows is not None:
 
-        id_shell = rows[0]
-        id_proprietaire = rows[1]
-        nom = rows[2]
+        id_shell = rows["id"]
+        id_proprietaire = rows["id_proprietaire"]
+        nom = rows["nom"]
         if id_proprietaire == user_id:
-            cursor.execute("""DELETE FROM shell WHERE id = ?""", (id_shell,))
+            cursor.execute("""DELETE FROM shell WHERE id = %s""", (id_shell,))
             conn.commit()
             print("supprimer ", nom, " de la DB")
         else:
@@ -149,13 +149,11 @@ def save_shell_to_db(user_id, nom, type):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.execute("""
                    INSERT INTO shell (id_proprietaire, nom, type_shell)
-                   VALUES (?, ?, ?)
+                   VALUES (%s, %s, %s)
                    """, (user_id, nom, type))
 
     conn.commit()
     conn.close()
-
 

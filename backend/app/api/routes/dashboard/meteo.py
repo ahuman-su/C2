@@ -30,13 +30,13 @@ def ville(id_user):
     cursor.execute("""
                    SELECT ville 
                    FROM utilisateurs 
-                   WHERE id = (?)
+                   WHERE id = (%s)
                        """, (id_user,))
     rows = cursor.fetchone()
     if rows is None:
         return "Ville non trouvé"
 
-    VILLE = rows[0]
+    VILLE = rows["ville"]
     print(VILLE, "*******************************************")
     conn.close()
     # Pour transformer le nom de ville en coordonnées, on peut utiliser Nominatim (OpenStreetMap)
@@ -72,7 +72,6 @@ def ville(id_user):
         return (f"Meteo a {VILLE} : {temp}°C, vent {wind} km/h")
     else:
         return ("Ville introuvable")
-
 
 
 

@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS utilisateurs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    prenom VARCHAR(255) NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARBINARY(255) NOT NULL,
+    ville VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS shell (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_proprietaire INT NOT NULL,
+    nom VARCHAR(255) NOT NULL,
+    type_shell VARCHAR(50) NOT NULL,
+    CONSTRAINT fk_shell_utilisateur FOREIGN KEY (id_proprietaire) REFERENCES utilisateurs(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

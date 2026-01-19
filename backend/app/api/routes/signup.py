@@ -23,7 +23,7 @@ def signup():
 
     cursor.execute("""
                    INSERT INTO utilisateurs (prenom, nom, username, email, password, ville)
-                   VALUES (?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s)
                    """, (prenom, nom, username, email, hash_password, ville))
 
     conn.commit()

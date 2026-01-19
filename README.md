@@ -1,12 +1,12 @@
 # Centre de controle C2
 
-Tableau de bord de command and control construit autour dune API Flask, dune interface Vue 3 et dune base SQLite legere. Le backend fournit lautentification, la gestion des listeners et lexecution de commandes tandis que le frontend offre un UI unifie pour piloter les agents et visualiser les retours en direct.
+Tableau de bord de command and control construit autour dune API Flask, dune interface Vue 3 et dune base MySQL. Le backend fournit lautentification, la gestion des listeners et lexecution de commandes tandis que le frontend offre un UI unifie pour piloter les agents et visualiser les retours en direct.
 
 ## Structure du projet
 
 ```
 .
-├── backend/           # Application Flask, JWT, acces SQLite
+├── backend/           # Application Flask, JWT, acces MySQL
 ├── frontend/          # Application Vue 3 + Vite
 ├── charge_utile/      # Outils annexes (relay forum, etc.)
 ├── requirements.txt   # Dependances Python globales
@@ -15,7 +15,7 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
 
 ## Fonctionnalites
 
-- Authentification JWT avec inscription et connexion stockees dans SQLite.
+- Authentification JWT avec inscription et connexion stockees dans MySQL.
 - Gestion de listeners reverse shell, Pastebin et forum.
 - Terminal multi-shell pour diffuser une commande vers plusieurs cibles.
 - Dashboard obscur concu pour lanalyse temps reel.
@@ -40,14 +40,19 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
    ```env
    SECRET_KEY=a-remplacer
    JWT_EXPIRATION_DELTA=3600
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_NAME=c2
+   DB_USER=c2
+   DB_PASSWORD=motdepasse
    API_KEY=cle-pastebin
    USER_PAST=utilisateur-pastebin
    PASSWORD=motdepasse-pastebin
    ```
    `API_KEY`, `USER_PAST` et `PASSWORD` sont requis si vous activez le listener Pastebin.
-3. Initialiser la base SQLite (cree `DB/db.db`) :
+3. Initialiser MySQL (tables via `backend/schema.sql`). Exemple :
    ```bash
-   python -m DB
+   mysql -u c2 -p c2 < schema.sql
    ```
 4. Lancer lAPI :
    ```bash
@@ -69,6 +74,15 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
    ```
 3. Ouvrir lURL fournie par Vite (souvent `http://localhost:5173`). Pour un build de production utiliser `npm run build`.
 
+## Docker Compose (dev)
+
+Lance le backend et le frontend avec rechargement automatique et une base MySQL persistante.
+La base est stockée dans le volume `db-data`.
+
+```bash
+docker compose up --build
+```
+
 ## Endpoints principaux
 
 | Methode | Chemin                              | Description                               |
@@ -86,7 +100,7 @@ Toutes les routes `/dashboard/*` exigent len-tete `Authorization: Bearer <token>
 
 ## Schema de base de donnees
 
-`backend/DB/__init__.py` cree deux tables :
+`backend/schema.sql` cree deux tables :
 
 - `utilisateurs` : `id`, `nom`, `prenom`, `username`, `email`, `password`, `ville`.
 - `shell` : `id`, `id_proprietaire`, `nom`, `type_shell` (cle etrangere vers `utilisateurs.id`).
