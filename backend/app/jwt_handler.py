@@ -4,6 +4,10 @@ import os
 from dotenv import load_dotenv
 from flask import jsonify, request, g
 from functools import wraps
+from sqlalchemy import select
+
+from DB import get_db_session
+from DB.models import Utilisateur
 
 
 #chargé les variables de configuration depuis le fichier .env'
@@ -44,6 +48,12 @@ def token_required(f):
                 token = token.split(" ")[1]
 
             decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            with get_db_session() as session:
+                exists = session.execute(
+                    select(Utilisateur.id).where(Utilisateur.id == decoded.get("user_id"))
+                ).scalar_one_or_none()
+            if exists is None:
+                return jsonify({'message': 'Utilisateur introuvable'}), 401
             g.user_data = decoded  # Stocke les données du token dans le contexte Flask
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token expiré'}), 401
@@ -53,4 +63,3 @@ def token_required(f):
         return f(*args, **kwargs)
 
     return decorated
-

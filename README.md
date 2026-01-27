@@ -48,6 +48,7 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
    API_KEY=cle-pastebin
    USER_PAST=utilisateur-pastebin
    PASSWORD=motdepasse-pastebin
+   CREDENTIALS_KEY=cle-fernet-base64
    ```
    `API_KEY`, `USER_PAST` et `PASSWORD` sont requis si vous activez le listener Pastebin.
 3. Initialiser MySQL (tables via `backend/schema.sql`). Exemple :
@@ -100,10 +101,14 @@ Toutes les routes `/dashboard/*` exigent len-tete `Authorization: Bearer <token>
 
 ## Schema de base de donnees
 
-`backend/schema.sql` cree deux tables :
+`backend/schema.sql` cree des tables pour :
 
 - `utilisateurs` : `id`, `nom`, `prenom`, `username`, `email`, `password`, `ville`.
 - `shell` : `id`, `id_proprietaire`, `nom`, `type_shell` (cle etrangere vers `utilisateurs.id`).
+- `shell_command_log` : historise les commandes executees (shell, utilisateur, commande, sortie, date).
+- `command_snippet` + `snippet_tag` + `snippet_tag_link` : snippets de commandes + tags.
+- `note` : notes utilisateur.
+- `credential` : stockage de credentials (prevoir chiffrement cote app).
 
 Les mots de passe sont stockes en hash bcrypt et les tokens sont signes en HS256.
 

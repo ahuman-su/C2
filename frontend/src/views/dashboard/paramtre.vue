@@ -236,9 +236,41 @@ const Submit_delete = async (shell: Shell) => {
 </template>
 
 <style scoped>
-#paramtre { width: 30%; height: 500px; font-family: monospace; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #0f0; border-radius: 8px; }
+#paramtre { width: 30%; height: 500px; font-family: monospace; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #0f0; border-radius: 8px; background: #060606; color: #d6ffd6; }
 #les-bouton { display: flex; width: 100%; }
 .les-bouton-form { width: 50%; }
 .bouton { width: 100%; padding: 10px; background-color: rgba(157, 76, 175, 0.38); color: white; border: none; cursor: pointer; font-size: 1em; font-weight: 500; font-family: inherit; transition: background-color 0.25s; }
 .bouton:hover { background-color: #b388ff; }
+
+.form-control {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+  background: #111;
+  color: #d6ffd6;
+  border: 1px solid rgba(15, 255, 15, 0.3);
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-family: monospace;
+}
+
+.submit-button {
+  width: 100%;
+  padding: 10px;
+  background: rgba(157, 76, 175, 0.38);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.submit-button:hover {
+  background-color: #b388ff;
+}
+
+.error-message {
+  color: #ff8a8a;
+  font-size: 0.85em;
+}
 </style>

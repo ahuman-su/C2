@@ -2,6 +2,7 @@
 import terminale from './dashboard/terminale.vue';
 import paramtre from './dashboard/paramtre.vue';
 import meteo from './dashboard/meteo.vue';
+import datahub from './dashboard/datahub.vue';
 
 import {onMounted, ref} from 'vue'
 import { checkTokenValidity } from '@/utils/auth'
@@ -27,6 +28,7 @@ onMounted(async () => {
     <paramtre v-model="sharedMessage"/>
   </div>
   <meteo></meteo>
+  <datahub></datahub>
 </template>
 
 <style scoped>

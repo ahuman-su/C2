@@ -1,8 +1,11 @@
 from flask import request, jsonify, Blueprint, g
 import jwt
+from sqlalchemy import select
+
 from app.jwt_handler import verify_token, token_required
 from .shell import Shell, Pastbin, Forum
-from DB import get_db_connection
+from DB import get_db_session
+from DB.models import Shell as ShellModel, ShellCommandLog
 
 
 terminal = Blueprint('dashboard', __name__)
@@ -21,19 +24,45 @@ def terminal_command():
     command = data['commande']
     shell_user = data['shell']
     results = {}
+    log_entries = []
+    user_data = g.user_data
+    user_id = user_data["user_id"]
 
     # on boucle sur l'ensemble des shell ou l'on veux executer la commade
-    for shell_temp in shell_user:
-        shell_instance = instances[shell_temp]
+    for shell_name in shell_user:
+        shell_instance = instances[shell_name]
         try:
             output = shell_instance.execute(command)
         except Exception as e:
             output = f"Erreur: {str(e)}"
 
         # Transforme les sauts de ligne en <br> pour un affichage HTML correct
-        output = output.replace('\n', '<br>')
+        raw_output = output
+        output = raw_output.replace('\n', '<br>')
 
-        results[shell_temp] = output
+        results[shell_name] = output
+        log_entries.append((shell_name, raw_output))
+
+    if log_entries:
+        try:
+            with get_db_session() as session:
+                for shell_name, raw_output in log_entries:
+                    shell_row = session.execute(
+                        select(ShellModel).where(
+                            ShellModel.id_proprietaire == user_id,
+                            ShellModel.nom == shell_name,
+                        )
+                    ).scalar_one_or_none()
+                    session.add(
+                        ShellCommandLog(
+                            shell_id=shell_row.id if shell_row else None,
+                            id_proprietaire=user_id,
+                            commande=command,
+                            sortie=raw_output,
+                        )
+                    )
+        except Exception as exc:
+            print(f"Erreur log commandes: {exc}")
 
     return jsonify({"resulat": results})
 
@@ -96,18 +125,20 @@ def shells_list():
     user_data = g.user_data
     user_id = user_data["user_id"]
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with get_db_session() as session:
+        rows = session.execute(
+            select(ShellModel).where(ShellModel.id_proprietaire == user_id)
+        ).scalars().all()
 
-    cursor.execute("""SELECT * FROM shell WHERE id_proprietaire = %s""", (user_id,))
-
-    rows = cursor.fetchall()
-    for i in rows:
-        shells.append(i)
-
-    print(shells)
-
-    conn.close()
+    for shell in rows:
+        shells.append(
+            {
+                "id": shell.id,
+                "id_proprietaire": shell.id_proprietaire,
+                "nom": shell.nom,
+                "type_shell": shell.type_shell,
+            }
+        )
     return jsonify(shells)
 
 
@@ -121,39 +152,27 @@ def supprimer_shell():
     user_id = user_data["user_id"]
 
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with get_db_session() as session:
+        shell_row = session.execute(
+            select(ShellModel).where(
+                ShellModel.id == id,
+                ShellModel.id_proprietaire == user_id,
+            )
+        ).scalar_one_or_none()
 
-    cursor.execute("""SELECT * FROM shell WHERE id = %s and id_proprietaire = %s""", (id, user_id,))
-
-    rows = cursor.fetchone()
-    if rows is not None:
-
-        id_shell = rows["id"]
-        id_proprietaire = rows["id_proprietaire"]
-        nom = rows["nom"]
-        if id_proprietaire == user_id:
-            cursor.execute("""DELETE FROM shell WHERE id = %s""", (id_shell,))
-            conn.commit()
-            print("supprimer ", nom, " de la DB")
-        else:
-            print("erreur, pas le proprietaire")
-
-
-    conn.close()
+        if shell_row is not None:
+            session.delete(shell_row)
+            print("supprimer ", shell_row.nom, " de la DB")
 
     return jsonify({"resulat": "supprimer"})
 
 
 def save_shell_to_db(user_id, nom, type):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-                   INSERT INTO shell (id_proprietaire, nom, type_shell)
-                   VALUES (%s, %s, %s)
-                   """, (user_id, nom, type))
-
-    conn.commit()
-    conn.close()
-
+    with get_db_session() as session:
+        session.add(
+            ShellModel(
+                id_proprietaire=user_id,
+                nom=nom,
+                type_shell=type,
+            )
+        )

@@ -17,6 +17,7 @@ def create_app():
         supprimer_shell_bp,
     )
     from .api.routes.dashboard.meteo import meteo
+    from .api.routes.dashboard.storage import storage
 
     app.register_blueprint(api_bp, url_prefix='/api')      # Route de l'API
     app.register_blueprint(signup_bp, url_prefix='/auth')  # Route pour signup
@@ -27,6 +28,7 @@ def create_app():
     app.register_blueprint(shells_list_bp, url_prefix='/dashboard')
     app.register_blueprint(supprimer_shell_bp, url_prefix='/dashboard')
     app.register_blueprint(meteo, url_prefix='/dashboard')
+    app.register_blueprint(storage, url_prefix='/dashboard')
     print("✅ Blueprints enregistrés avec succès !")
 
 

@@ -1,7 +1,10 @@
 from flask import request, jsonify, Blueprint, g
 import jwt
+from sqlalchemy import select
+
 from app.jwt_handler import verify_token, token_required
-from DB import get_db_connection
+from DB import get_db_session
+from DB.models import Utilisateur
 import requests
 
 HEADERS = {
@@ -24,21 +27,15 @@ def meteo_ville():
 
 
 def ville(id_user):
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with get_db_session() as session:
+        stmt = select(Utilisateur.ville).where(Utilisateur.id == id_user)
+        row = session.execute(stmt).one_or_none()
 
-    cursor.execute("""
-                   SELECT ville 
-                   FROM utilisateurs 
-                   WHERE id = (%s)
-                       """, (id_user,))
-    rows = cursor.fetchone()
-    if rows is None:
+    if row is None:
         return "Ville non trouvé"
 
-    VILLE = rows["ville"]
+    VILLE = row[0]
     print(VILLE, "*******************************************")
-    conn.close()
     # Pour transformer le nom de ville en coordonnées, on peut utiliser Nominatim (OpenStreetMap)
     geo_url = f"https://nominatim.openstreetmap.org/search?city={VILLE}&format=json"
     try:
@@ -72,6 +69,5 @@ def ville(id_user):
         return (f"Meteo a {VILLE} : {temp}°C, vent {wind} km/h")
     else:
         return ("Ville introuvable")
-
 
 

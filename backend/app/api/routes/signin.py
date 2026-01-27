@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
 import bcrypt
-from DB import get_db_connection
+from sqlalchemy import select
+
+from DB import get_db_session
+from DB.models import Utilisateur
 from app.jwt_handler import generate_token
 signin_bp = Blueprint('signin', __name__)
 
@@ -11,22 +14,14 @@ def signin():
     email = data['email']
     password = data['password']
 
-    hash_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    with get_db_session() as session:
+        stmt = select(Utilisateur).where(Utilisateur.email == email)
+        user = session.execute(stmt).scalar_one_or_none()
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-                   SELECT id, email, password 
-                   FROM utilisateurs 
-                   WHERE email = (%s)
-                       """, (email,))
-    rows = cursor.fetchone()
-
-    if rows is None:
+    if user is None:
         return jsonify({"success": False})
 
-    data = {"id": rows["id"], "email": rows["email"], "password": rows["password"]}
+    data = {"id": user.id, "email": user.email, "password": user.password}
 
     check = bcrypt.checkpw(
         password=password.encode('utf-8'),

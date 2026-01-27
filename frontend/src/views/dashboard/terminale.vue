@@ -90,8 +90,8 @@ async function onSubmit() {
 #terminal {
   width: 70%;
   height: 500px;
-  background: #000;
-  color: #0f0;
+  background: #060606;
+  color: #d6ffd6;
   font-family: monospace;
   padding: 10px;
   box-sizing: border-box;
@@ -136,12 +136,14 @@ async function onSubmit() {
 }
 
 #command {
-  background: none;
-  border: none;
+  background: #111;
+  border: 1px solid rgba(15, 255, 15, 0.3);
   outline: none;
-  color: #0f0;
+  color: #d6ffd6;
   font-family: monospace;
   font-size: 1em;
   flex-grow: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
 }
 </style>
