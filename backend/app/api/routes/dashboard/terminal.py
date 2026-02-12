@@ -1,28 +1,25 @@
-from flask import request, jsonify, Blueprint, g
-import jwt
-from sqlalchemy import select
+from flask import Blueprint, g, jsonify, request
 
-from app.jwt_handler import verify_token, token_required
-from .shell import Shell, Pastbin, Forum
-from DB import get_db_session
-from DB.models import Shell as ShellModel, ShellCommandLog
+from app.jwt_handler import token_required
+from DB import get_db_connection
+from .shell import Forum, Pastbin, Shell
 
-
-terminal = Blueprint('dashboard', __name__)
-listener= Blueprint('listener', __name__)
-shells_list_bp = Blueprint('shells_list', __name__)
-supprimer_shell_bp = Blueprint('supprimer_shell', __name__)
+terminal = Blueprint("dashboard", __name__)
+listener = Blueprint("listener", __name__)
+shells_list_bp = Blueprint("shells_list", __name__)
+supprimer_shell_bp = Blueprint("supprimer_shell", __name__)
 
 instances = {}
 shell_temp = {}
 
-@terminal.route('/terminal', methods=['GET', 'POST'])
+
+@terminal.route("/terminal", methods=["GET", "POST"])
 @token_required
 def terminal_command():
     data = request.get_json()
 
-    command = data['commande']
-    shell_user = data['shell']
+    command = data["commande"]
+    shell_user = data["shell"]
     results = {}
     log_entries = []
     user_data = g.user_data
@@ -33,51 +30,60 @@ def terminal_command():
         shell_instance = instances[shell_name]
         try:
             output = shell_instance.execute(command)
-        except Exception as e:
-            output = f"Erreur: {str(e)}"
+        except Exception as exc:
+            output = f"Erreur: {str(exc)}"
 
         # Transforme les sauts de ligne en <br> pour un affichage HTML correct
         raw_output = output
-        output = raw_output.replace('\n', '<br>')
+        output = raw_output.replace("\n", "<br>")
 
         results[shell_name] = output
         log_entries.append((shell_name, raw_output))
 
     if log_entries:
+        conn = get_db_connection()
+        cursor = conn.cursor()
         try:
-            with get_db_session() as session:
-                for shell_name, raw_output in log_entries:
-                    shell_row = session.execute(
-                        select(ShellModel).where(
-                            ShellModel.id_proprietaire == user_id,
-                            ShellModel.nom == shell_name,
-                        )
-                    ).scalar_one_or_none()
-                    session.add(
-                        ShellCommandLog(
-                            shell_id=shell_row.id if shell_row else None,
-                            id_proprietaire=user_id,
-                            commande=command,
-                            sortie=raw_output,
-                        )
-                    )
+            for shell_name, raw_output in log_entries:
+                cursor.execute(
+                    """
+                    SELECT id
+                    FROM shell
+                    WHERE id_proprietaire = %s AND nom = %s
+                    """,
+                    (user_id, shell_name),
+                )
+                shell_row = cursor.fetchone()
+                shell_id = shell_row["id"] if shell_row else None
+
+                cursor.execute(
+                    """
+                    INSERT INTO shell_command_log (shell_id, id_proprietaire, commande, sortie)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (shell_id, user_id, command, raw_output),
+                )
+            conn.commit()
         except Exception as exc:
+            conn.rollback()
             print(f"Erreur log commandes: {exc}")
+        finally:
+            conn.close()
 
     return jsonify({"resulat": results})
 
 
-@listener.route('/listener', methods=['POST'])
+@listener.route("/listener", methods=["POST"])
 @token_required
 def listener_command():
     data = request.get_json()
     print(data)
-    nom = data['nom']
-    ip = data['host']
-    port = data['port']
-    types = data['type']
-    user = data['user']
-    password = data['password']
+    nom = data["nom"]
+    ip = data["host"]
+    port = data["port"]
+    types = data["type"]
+    user = data["user"]
+    password = data["password"]
     print(types)
 
     user_info = g.user_data  # Données décodées du token
@@ -89,90 +95,99 @@ def listener_command():
             instances[nom] = shell_temp[nom]
             del shell_temp[nom]
 
-
             save_shell_to_db(user_id, nom, "shell")
 
         else:
             print("erreur de connexion")
 
-
         return jsonify({"resulat": "sa fcontion"})
 
-    elif types == "Pastbin":
+    if types == "Pastbin":
         instances[nom] = Pastbin(nom)
         save_shell_to_db(user_id, nom, "Pastbin")
         print("nom :", nom)
 
         return jsonify({"resulat": "sa fcontion"})
 
-    elif types == "forume":
+    if types == "forume":
         instances[nom] = Forum(ip, port, user, password, nom)
         save_shell_to_db(user_id, nom, "Forum")
         print("nom :", nom)
 
         return jsonify({"resulat": "sa fcontion"})
 
-    else:
-        pass
     print("erreur")
     return jsonify({"resulat": "erreur"})
 
 
-@shells_list_bp.route('/shells_list', methods=['GET', 'POST'])
+@shells_list_bp.route("/shells_list", methods=["GET", "POST"])
 @token_required
 def shells_list():
-    shells = []
     user_data = g.user_data
     user_id = user_data["user_id"]
 
-    with get_db_session() as session:
-        rows = session.execute(
-            select(ShellModel).where(ShellModel.id_proprietaire == user_id)
-        ).scalars().all()
-
-    for shell in rows:
-        shells.append(
-            {
-                "id": shell.id,
-                "id_proprietaire": shell.id_proprietaire,
-                "nom": shell.nom,
-                "type_shell": shell.type_shell,
-            }
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM shell
+            WHERE id_proprietaire = %s
+            """,
+            (user_id,),
         )
-    return jsonify(shells)
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return jsonify(rows)
 
 
-@supprimer_shell_bp.route('/supprimer_shell', methods=['POST'])
+@supprimer_shell_bp.route("/supprimer_shell", methods=["POST"])
 @token_required
 def supprimer_shell():
     data = request.get_json()
-    id = data["id"]
+    shell_id = data["id"]
 
     user_data = g.user_data
     user_id = user_data["user_id"]
 
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM shell
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (shell_id, user_id),
+        )
 
-    with get_db_session() as session:
-        shell_row = session.execute(
-            select(ShellModel).where(
-                ShellModel.id == id,
-                ShellModel.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
-
-        if shell_row is not None:
-            session.delete(shell_row)
-            print("supprimer ", shell_row.nom, " de la DB")
+        row = cursor.fetchone()
+        if row is not None:
+            cursor.execute("DELETE FROM shell WHERE id = %s", (row["id"],))
+            conn.commit()
+            print("supprimer ", row["nom"], " de la DB")
+    finally:
+        conn.close()
 
     return jsonify({"resulat": "supprimer"})
 
 
-def save_shell_to_db(user_id, nom, type):
-    with get_db_session() as session:
-        session.add(
-            ShellModel(
-                id_proprietaire=user_id,
-                nom=nom,
-                type_shell=type,
-            )
+
+def save_shell_to_db(user_id, nom, type_shell):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO shell (id_proprietaire, nom, type_shell)
+            VALUES (%s, %s, %s)
+            """,
+            (user_id, nom, type_shell),
         )
+        conn.commit()
+    finally:
+        conn.close()

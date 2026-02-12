@@ -1,43 +1,49 @@
-from flask import request, jsonify, Blueprint, g
-import jwt
-from sqlalchemy import select
-
-from app.jwt_handler import verify_token, token_required
-from DB import get_db_session
-from DB.models import Utilisateur
+from flask import Blueprint, g, jsonify
 import requests
+
+from app.jwt_handler import token_required
+from DB import get_db_connection
 
 HEADERS = {
     "User-Agent": "C2Control/1.0 (contact@example.com)",
 }
 
 
+meteo = Blueprint("meteo", __name__)
 
 
-meteo = Blueprint('meteo', __name__)
-
-
-@meteo.route('/meteo', methods=['GET'])
+@meteo.route("/meteo", methods=["GET"])
 @token_required
 def meteo_ville():
     user_info = g.user_data  # Données décodées du token
     user_id = user_info["user_id"]
-    return jsonify({"message":  ville(user_id), "user": user_id}), 200
+    return jsonify({"message": ville(user_id), "user": user_id}), 200
 
 
 
 def ville(id_user):
-    with get_db_session() as session:
-        stmt = select(Utilisateur.ville).where(Utilisateur.id == id_user)
-        row = session.execute(stmt).one_or_none()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT ville
+            FROM utilisateurs
+            WHERE id = %s
+            """,
+            (id_user,),
+        )
+        row = cursor.fetchone()
+    finally:
+        conn.close()
 
     if row is None:
         return "Ville non trouvé"
 
-    VILLE = row[0]
-    print(VILLE, "*******************************************")
+    ville_name = row["ville"]
+    print(ville_name, "*******************************************")
     # Pour transformer le nom de ville en coordonnées, on peut utiliser Nominatim (OpenStreetMap)
-    geo_url = f"https://nominatim.openstreetmap.org/search?city={VILLE}&format=json"
+    geo_url = f"https://nominatim.openstreetmap.org/search?city={ville_name}&format=json"
     try:
         geo_resp = requests.get(geo_url, headers=HEADERS, timeout=5)
         geo_resp.raise_for_status()
@@ -66,8 +72,5 @@ def ville(id_user):
         if temp is None or wind is None:
             return "Donnees meteo indisponibles"
 
-        return (f"Meteo a {VILLE} : {temp}°C, vent {wind} km/h")
-    else:
-        return ("Ville introuvable")
-
-
+        return f"Meteo a {ville_name} : {temp}°C, vent {wind} km/h"
+    return "Ville introuvable"

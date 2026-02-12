@@ -1,22 +1,20 @@
 import os
 
-from flask import Blueprint, jsonify, request, g
-from sqlalchemy import select
 from cryptography.fernet import Fernet
+from flask import Blueprint, g, jsonify, request
 
 from app.jwt_handler import token_required
-from DB import get_db_session
-from DB.models import CommandSnippet, SnippetTag, Note, Credential
+from DB import get_db_connection
 
 storage = Blueprint("storage", __name__)
 
 
 def _tags_from_payload(payload):
-    """Normalize tag payload to a unique list of strings (input: dict, output: list[str])."""
     tags = payload.get("tags", [])
     if isinstance(tags, str):
-        tags = [t.strip() for t in tags.split(",")]
-    cleaned = [t.strip() for t in tags if isinstance(t, str) and t.strip()]
+        tags = [tag.strip() for tag in tags.split(",")]
+    cleaned = [tag.strip() for tag in tags if isinstance(tag, str) and tag.strip()]
+
     unique = []
     seen = set()
     for tag in cleaned:
@@ -28,79 +26,164 @@ def _tags_from_payload(payload):
     return unique
 
 
-def _resolve_tags(session, user_id, tag_labels):
-    """Ensure tags exist for user and return ORM objects (input: session, user_id, labels; output: list[SnippetTag])."""
-    tags = []
+def _format_datetime(value):
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _snippet_payload_from_rows(rows):
+    if not rows:
+        return None
+
+    first = rows[0]
+    payload = {
+        "id": first["id"],
+        "id_proprietaire": first["id_proprietaire"],
+        "titre": first["titre"],
+        "commande": first["commande"],
+        "description": first["description"],
+        "type_shell": first["type_shell"],
+        "created_at": _format_datetime(first.get("created_at")),
+        "updated_at": _format_datetime(first.get("updated_at")),
+        "tags": [],
+    }
+
+    for row in rows:
+        label = row.get("tag_libelle")
+        if label:
+            payload["tags"].append(label)
+
+    return payload
+
+
+def _list_snippets_with_tags(cursor, user_id):
+    cursor.execute(
+        """
+        SELECT
+            s.id,
+            s.id_proprietaire,
+            s.titre,
+            s.commande,
+            s.description,
+            s.type_shell,
+            s.created_at,
+            s.updated_at,
+            t.libelle AS tag_libelle
+        FROM command_snippet s
+        LEFT JOIN snippet_tag_link l ON l.snippet_id = s.id
+        LEFT JOIN snippet_tag t ON t.id = l.tag_id
+        WHERE s.id_proprietaire = %s
+        ORDER BY s.updated_at DESC, s.id DESC, t.libelle ASC
+        """,
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    if not rows:
+        return []
+
+    ordered = []
+    grouped = {}
+    for row in rows:
+        snippet_id = row["id"]
+        if snippet_id not in grouped:
+            grouped[snippet_id] = {
+                "id": row["id"],
+                "id_proprietaire": row["id_proprietaire"],
+                "titre": row["titre"],
+                "commande": row["commande"],
+                "description": row["description"],
+                "type_shell": row["type_shell"],
+                "created_at": _format_datetime(row.get("created_at")),
+                "updated_at": _format_datetime(row.get("updated_at")),
+                "tags": [],
+            }
+            ordered.append(snippet_id)
+
+        label = row.get("tag_libelle")
+        if label:
+            grouped[snippet_id]["tags"].append(label)
+
+    return [grouped[snippet_id] for snippet_id in ordered]
+
+
+def _fetch_snippet_with_tags(cursor, user_id, snippet_id):
+    cursor.execute(
+        """
+        SELECT
+            s.id,
+            s.id_proprietaire,
+            s.titre,
+            s.commande,
+            s.description,
+            s.type_shell,
+            s.created_at,
+            s.updated_at,
+            t.libelle AS tag_libelle
+        FROM command_snippet s
+        LEFT JOIN snippet_tag_link l ON l.snippet_id = s.id
+        LEFT JOIN snippet_tag t ON t.id = l.tag_id
+        WHERE s.id = %s AND s.id_proprietaire = %s
+        ORDER BY t.libelle ASC
+        """,
+        (snippet_id, user_id),
+    )
+    return _snippet_payload_from_rows(cursor.fetchall())
+
+
+def _resolve_tags(cursor, user_id, tag_labels):
+    tag_ids = []
     for label in tag_labels:
-        existing = session.execute(
-            select(SnippetTag).where(
-                SnippetTag.id_proprietaire == user_id,
-                SnippetTag.libelle == label,
-            )
-        ).scalar_one_or_none()
+        cursor.execute(
+            """
+            SELECT id
+            FROM snippet_tag
+            WHERE id_proprietaire = %s AND libelle = %s
+            """,
+            (user_id, label),
+        )
+        existing = cursor.fetchone()
         if existing is None:
-            existing = SnippetTag(id_proprietaire=user_id, libelle=label)
-            session.add(existing)
-            session.flush()
-        tags.append(existing)
-    return tags
+            cursor.execute(
+                """
+                INSERT INTO snippet_tag (id_proprietaire, libelle)
+                VALUES (%s, %s)
+                """,
+                (user_id, label),
+            )
+            tag_ids.append(cursor.lastrowid)
+        else:
+            tag_ids.append(existing["id"])
+    return tag_ids
 
 
-def _snippet_to_dict(snippet):
-    """Serialize CommandSnippet ORM to JSON-friendly dict (input: ORM; output: dict)."""
+def _replace_snippet_tags(cursor, snippet_id, tag_ids):
+    cursor.execute("DELETE FROM snippet_tag_link WHERE snippet_id = %s", (snippet_id,))
+    for tag_id in tag_ids:
+        cursor.execute(
+            """
+            INSERT INTO snippet_tag_link (snippet_id, tag_id)
+            VALUES (%s, %s)
+            """,
+            (snippet_id, tag_id),
+        )
+
+
+def _note_to_dict(row):
     return {
-        "id": snippet.id,
-        "id_proprietaire": snippet.id_proprietaire,
-        "titre": snippet.titre,
-        "commande": snippet.commande,
-        "description": snippet.description,
-        "type_shell": snippet.type_shell,
-        "created_at": snippet.created_at.isoformat() if snippet.created_at else None,
-        "updated_at": snippet.updated_at.isoformat() if snippet.updated_at else None,
-        "tags": [tag.libelle for tag in snippet.tags],
-    }
-
-
-def _note_to_dict(note):
-    """Serialize Note ORM to JSON-friendly dict (input: ORM; output: dict)."""
-    return {
-        "id": note.id,
-        "id_proprietaire": note.id_proprietaire,
-        "titre": note.titre,
-        "contenu": note.contenu,
-        "contexte": note.contexte,
-        "created_at": note.created_at.isoformat() if note.created_at else None,
-        "updated_at": note.updated_at.isoformat() if note.updated_at else None,
-    }
-
-
-def _credential_to_dict(credential):
-    """Serialize Credential ORM to dict with decrypted secret if possible (input: ORM; output: dict)."""
-    secret_value = credential.secret
-    if credential.is_encrypted:
-        try:
-            secret_value = _decrypt_secret(credential.secret)
-        except Exception as exc:
-            print(f"Erreur decrypt secret: {exc}")
-            secret_value = ""
-    return {
-        "id": credential.id,
-        "id_proprietaire": credential.id_proprietaire,
-        "nom": credential.nom,
-        "username": credential.username,
-        "secret": secret_value,
-        "type_credential": credential.type_credential,
-        "host": credential.host,
-        "port": credential.port,
-        "note": credential.note,
-        "is_encrypted": bool(credential.is_encrypted),
-        "created_at": credential.created_at.isoformat() if credential.created_at else None,
-        "updated_at": credential.updated_at.isoformat() if credential.updated_at else None,
+        "id": row["id"],
+        "id_proprietaire": row["id_proprietaire"],
+        "titre": row["titre"],
+        "contenu": row["contenu"],
+        "contexte": row["contexte"],
+        "created_at": _format_datetime(row.get("created_at")),
+        "updated_at": _format_datetime(row.get("updated_at")),
     }
 
 
 def _get_fernet():
-    """Build Fernet from env key CREDENTIALS_KEY (input: env; output: Fernet)."""
     key = os.getenv("CREDENTIALS_KEY")
     if not key:
         raise ValueError("CREDENTIALS_KEY manquant")
@@ -110,36 +193,58 @@ def _get_fernet():
 
 
 def _encrypt_secret(secret):
-    """Encrypt secret using Fernet (input: str; output: str token)."""
     fernet = _get_fernet()
     return fernet.encrypt(secret.encode("utf-8")).decode("utf-8")
 
 
 def _decrypt_secret(secret):
-    """Decrypt secret using Fernet (input: str token; output: str)."""
     fernet = _get_fernet()
     return fernet.decrypt(secret.encode("utf-8")).decode("utf-8")
+
+
+def _credential_to_dict(row):
+    secret_value = row["secret"]
+    if row.get("is_encrypted"):
+        try:
+            secret_value = _decrypt_secret(row["secret"])
+        except Exception as exc:
+            print(f"Erreur decrypt secret: {exc}")
+            secret_value = ""
+
+    return {
+        "id": row["id"],
+        "id_proprietaire": row["id_proprietaire"],
+        "nom": row["nom"],
+        "username": row["username"],
+        "secret": secret_value,
+        "type_credential": row["type_credential"],
+        "host": row["host"],
+        "port": row["port"],
+        "note": row["note"],
+        "is_encrypted": bool(row.get("is_encrypted")),
+        "created_at": _format_datetime(row.get("created_at")),
+        "updated_at": _format_datetime(row.get("updated_at")),
+    }
 
 
 @storage.route("/snippets", methods=["GET"])
 @token_required
 def list_snippets():
-    """GET /snippets -> list current user's snippets (output: list[dict])."""
     user_id = g.user_data["user_id"]
-    with get_db_session() as session:
-        snippets = session.execute(
-            select(CommandSnippet)
-            .where(CommandSnippet.id_proprietaire == user_id)
-            .order_by(CommandSnippet.updated_at.desc())
-        ).scalars().all()
-        payload = [_snippet_to_dict(snippet) for snippet in snippets]
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        payload = _list_snippets_with_tags(cursor, user_id)
+    finally:
+        conn.close()
+
     return jsonify(payload)
 
 
 @storage.route("/snippets", methods=["POST"])
 @token_required
 def create_snippet():
-    """POST /snippets with JSON fields -> create snippet (output: snippet dict)."""
     user_id = g.user_data["user_id"]
     data = request.get_json() or {}
     titre = data.get("titre")
@@ -148,21 +253,36 @@ def create_snippet():
     if not titre or not commande:
         return jsonify({"error": "titre_et_commande_requis"}), 400
 
-    with get_db_session() as session:
-        snippet = CommandSnippet(
-            id_proprietaire=user_id,
-            titre=titre,
-            commande=commande,
-            description=data.get("description"),
-            type_shell=data.get("type_shell"),
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO command_snippet (id_proprietaire, titre, commande, description, type_shell)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                titre,
+                commande,
+                data.get("description"),
+                data.get("type_shell"),
+            ),
         )
+        snippet_id = cursor.lastrowid
+
         tag_labels = _tags_from_payload(data)
         if tag_labels:
-            snippet.tags = _resolve_tags(session, user_id, tag_labels)
+            tag_ids = _resolve_tags(cursor, user_id, tag_labels)
+            _replace_snippet_tags(cursor, snippet_id, tag_ids)
 
-        session.add(snippet)
-        session.flush()
-        payload = _snippet_to_dict(snippet)
+        conn.commit()
+        payload = _fetch_snippet_with_tags(cursor, user_id, snippet_id)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     return jsonify(payload), 201
 
@@ -170,36 +290,59 @@ def create_snippet():
 @storage.route("/snippets/<int:snippet_id>", methods=["PUT"])
 @token_required
 def update_snippet(snippet_id):
-    """PUT /snippets/<id> with JSON fields -> update snippet (output: snippet dict)."""
     user_id = g.user_data["user_id"]
     data = request.get_json() or {}
 
-    with get_db_session() as session:
-        snippet = session.execute(
-            select(CommandSnippet).where(
-                CommandSnippet.id == snippet_id,
-                CommandSnippet.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT id, titre, commande
+            FROM command_snippet
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (snippet_id, user_id),
+        )
+        snippet = cursor.fetchone()
         if snippet is None:
             return jsonify({"error": "snippet_introuvable"}), 404
 
-        if "titre" in data:
-            snippet.titre = data.get("titre") or snippet.titre
-        if "commande" in data:
-            snippet.commande = data.get("commande") or snippet.commande
-        if "description" in data:
-            snippet.description = data.get("description")
-        if "type_shell" in data:
-            snippet.type_shell = data.get("type_shell")
+        set_parts = []
+        values = []
 
+        if "titre" in data:
+            set_parts.append("titre = %s")
+            values.append(data.get("titre") or snippet["titre"])
+        if "commande" in data:
+            set_parts.append("commande = %s")
+            values.append(data.get("commande") or snippet["commande"])
+        if "description" in data:
+            set_parts.append("description = %s")
+            values.append(data.get("description"))
+        if "type_shell" in data:
+            set_parts.append("type_shell = %s")
+            values.append(data.get("type_shell"))
+
+        if set_parts:
+            values.extend([snippet_id, user_id])
+            cursor.execute(
+                f"UPDATE command_snippet SET {', '.join(set_parts)} WHERE id = %s AND id_proprietaire = %s",
+                tuple(values),
+            )
 
         if "tags" in data:
             tag_labels = _tags_from_payload(data)
-            snippet.tags = _resolve_tags(session, user_id, tag_labels)
+            tag_ids = _resolve_tags(cursor, user_id, tag_labels)
+            _replace_snippet_tags(cursor, snippet_id, tag_ids)
 
-        session.flush()
-        payload = _snippet_to_dict(snippet)
+        conn.commit()
+        payload = _fetch_snippet_with_tags(cursor, user_id, snippet_id)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     return jsonify(payload)
 
@@ -207,40 +350,64 @@ def update_snippet(snippet_id):
 @storage.route("/snippets/<int:snippet_id>", methods=["DELETE"])
 @token_required
 def delete_snippet(snippet_id):
-    """DELETE /snippets/<id> -> delete snippet (output: success bool)."""
     user_id = g.user_data["user_id"]
-    with get_db_session() as session:
-        snippet = session.execute(
-            select(CommandSnippet).where(
-                CommandSnippet.id == snippet_id,
-                CommandSnippet.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM command_snippet
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (snippet_id, user_id),
+        )
+        snippet = cursor.fetchone()
         if snippet is None:
             return jsonify({"error": "snippet_introuvable"}), 404
-        session.delete(snippet)
+
+        cursor.execute(
+            """
+            DELETE FROM command_snippet
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (snippet_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
     return jsonify({"success": True})
 
 
 @storage.route("/notes", methods=["GET"])
 @token_required
 def list_notes():
-    """GET /notes -> list current user's notes (output: list[dict])."""
     user_id = g.user_data["user_id"]
-    with get_db_session() as session:
-        notes = session.execute(
-            select(Note)
-            .where(Note.id_proprietaire == user_id)
-            .order_by(Note.updated_at.desc())
-        ).scalars().all()
-        payload = [_note_to_dict(note) for note in notes]
-    return jsonify(payload)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT id, id_proprietaire, titre, contenu, contexte, created_at, updated_at
+            FROM note
+            WHERE id_proprietaire = %s
+            ORDER BY updated_at DESC, id DESC
+            """,
+            (user_id,),
+        )
+        notes = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return jsonify([_note_to_dict(note) for note in notes])
 
 
 @storage.route("/notes", methods=["POST"])
 @token_required
 def create_note():
-    """POST /notes with JSON fields -> create note (output: note dict)."""
     user_id = g.user_data["user_id"]
     data = request.get_json() or {}
     titre = data.get("titre")
@@ -248,87 +415,164 @@ def create_note():
     if not titre or not contenu:
         return jsonify({"error": "titre_et_contenu_requis"}), 400
 
-    with get_db_session() as session:
-        note = Note(
-            id_proprietaire=user_id,
-            titre=titre,
-            contenu=contenu,
-            contexte=data.get("contexte"),
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO note (id_proprietaire, titre, contenu, contexte)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (user_id, titre, contenu, data.get("contexte")),
         )
-        session.add(note)
-        session.flush()
-        payload = _note_to_dict(note)
+        note_id = cursor.lastrowid
+        conn.commit()
 
-    return jsonify(payload), 201
+        cursor.execute(
+            """
+            SELECT id, id_proprietaire, titre, contenu, contexte, created_at, updated_at
+            FROM note
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (note_id, user_id),
+        )
+        note = cursor.fetchone()
+    finally:
+        conn.close()
+
+    return jsonify(_note_to_dict(note)), 201
 
 
 @storage.route("/notes/<int:note_id>", methods=["PUT"])
 @token_required
 def update_note(note_id):
-    """PUT /notes/<id> with JSON fields -> update note (output: note dict)."""
     user_id = g.user_data["user_id"]
     data = request.get_json() or {}
 
-    with get_db_session() as session:
-        note = session.execute(
-            select(Note).where(
-                Note.id == note_id,
-                Note.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT id, titre, contenu
+            FROM note
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (note_id, user_id),
+        )
+        note = cursor.fetchone()
         if note is None:
             return jsonify({"error": "note_introuvable"}), 404
 
+        set_parts = []
+        values = []
+
         if "titre" in data:
-            note.titre = data.get("titre") or note.titre
+            set_parts.append("titre = %s")
+            values.append(data.get("titre") or note["titre"])
         if "contenu" in data:
-            note.contenu = data.get("contenu") or note.contenu
+            set_parts.append("contenu = %s")
+            values.append(data.get("contenu") or note["contenu"])
         if "contexte" in data:
-            note.contexte = data.get("contexte")
+            set_parts.append("contexte = %s")
+            values.append(data.get("contexte"))
 
-        session.flush()
-        payload = _note_to_dict(note)
+        if set_parts:
+            values.extend([note_id, user_id])
+            cursor.execute(
+                f"UPDATE note SET {', '.join(set_parts)} WHERE id = %s AND id_proprietaire = %s",
+                tuple(values),
+            )
 
-    return jsonify(payload)
+        conn.commit()
+        cursor.execute(
+            """
+            SELECT id, id_proprietaire, titre, contenu, contexte, created_at, updated_at
+            FROM note
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (note_id, user_id),
+        )
+        updated_note = cursor.fetchone()
+    finally:
+        conn.close()
+
+    return jsonify(_note_to_dict(updated_note))
 
 
 @storage.route("/notes/<int:note_id>", methods=["DELETE"])
 @token_required
 def delete_note(note_id):
-    """DELETE /notes/<id> -> delete note (output: success bool)."""
     user_id = g.user_data["user_id"]
-    with get_db_session() as session:
-        note = session.execute(
-            select(Note).where(
-                Note.id == note_id,
-                Note.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM note
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (note_id, user_id),
+        )
+        note = cursor.fetchone()
         if note is None:
             return jsonify({"error": "note_introuvable"}), 404
-        session.delete(note)
+
+        cursor.execute(
+            """
+            DELETE FROM note
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (note_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
     return jsonify({"success": True})
 
 
 @storage.route("/credentials", methods=["GET"])
 @token_required
 def list_credentials():
-    """GET /credentials -> list current user's credentials (output: list[dict])."""
     user_id = g.user_data["user_id"]
-    with get_db_session() as session:
-        creds = session.execute(
-            select(Credential)
-            .where(Credential.id_proprietaire == user_id)
-            .order_by(Credential.updated_at.desc())
-        ).scalars().all()
-        payload = [_credential_to_dict(cred) for cred in creds]
-    return jsonify(payload)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                id_proprietaire,
+                nom,
+                username,
+                secret,
+                type_credential,
+                host,
+                port,
+                note,
+                is_encrypted,
+                created_at,
+                updated_at
+            FROM credential
+            WHERE id_proprietaire = %s
+            ORDER BY updated_at DESC, id DESC
+            """,
+            (user_id,),
+        )
+        creds = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return jsonify([_credential_to_dict(cred) for cred in creds])
 
 
 @storage.route("/credentials", methods=["POST"])
 @token_required
 def create_credential():
-    """POST /credentials with JSON fields -> create credential (output: credential dict)."""
     user_id = g.user_data["user_id"]
     data = request.get_json() or {}
     nom = data.get("nom")
@@ -340,31 +584,72 @@ def create_credential():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    with get_db_session() as session:
-        cred = Credential(
-            id_proprietaire=user_id,
-            nom=nom,
-            username=data.get("username"),
-            secret=encrypted_secret,
-            type_credential=data.get("type_credential"),
-            host=data.get("host"),
-            port=data.get("port"),
-            note=data.get("note"),
-            is_encrypted=True,
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO credential (
+                id_proprietaire,
+                nom,
+                username,
+                secret,
+                type_credential,
+                host,
+                port,
+                note,
+                is_encrypted
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                nom,
+                data.get("username"),
+                encrypted_secret,
+                data.get("type_credential"),
+                data.get("host"),
+                data.get("port"),
+                data.get("note"),
+                1,
+            ),
         )
-        session.add(cred)
-        session.flush()
-        payload = _credential_to_dict(cred)
+        credential_id = cursor.lastrowid
+        conn.commit()
 
-    return jsonify(payload), 201
+        cursor.execute(
+            """
+            SELECT
+                id,
+                id_proprietaire,
+                nom,
+                username,
+                secret,
+                type_credential,
+                host,
+                port,
+                note,
+                is_encrypted,
+                created_at,
+                updated_at
+            FROM credential
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (credential_id, user_id),
+        )
+        cred = cursor.fetchone()
+    finally:
+        conn.close()
+
+    return jsonify(_credential_to_dict(cred)), 201
 
 
 @storage.route("/credentials/<int:credential_id>", methods=["PUT"])
 @token_required
 def update_credential(credential_id):
-    """PUT /credentials/<id> with JSON fields -> update credential (output: credential dict)."""
     user_id = g.user_data["user_id"]
     data = request.get_json() or {}
+
     encrypted_secret = None
     if data.get("secret"):
         try:
@@ -372,53 +657,123 @@ def update_credential(credential_id):
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
 
-    with get_db_session() as session:
-        cred = session.execute(
-            select(Credential).where(
-                Credential.id == credential_id,
-                Credential.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                nom,
+                username,
+                secret,
+                type_credential,
+                host,
+                port,
+                note,
+                is_encrypted
+            FROM credential
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (credential_id, user_id),
+        )
+        cred = cursor.fetchone()
         if cred is None:
             return jsonify({"error": "credential_introuvable"}), 404
 
+        set_parts = []
+        values = []
+
         if "nom" in data:
-            cred.nom = data.get("nom") or cred.nom
+            set_parts.append("nom = %s")
+            values.append(data.get("nom") or cred["nom"])
         if "username" in data:
-            cred.username = data.get("username")
-        if "secret" in data:
-            if encrypted_secret:
-                cred.secret = encrypted_secret
+            set_parts.append("username = %s")
+            values.append(data.get("username"))
+        if "secret" in data and encrypted_secret:
+            set_parts.append("secret = %s")
+            values.append(encrypted_secret)
+            set_parts.append("is_encrypted = %s")
+            values.append(1)
         if "type_credential" in data:
-            cred.type_credential = data.get("type_credential")
+            set_parts.append("type_credential = %s")
+            values.append(data.get("type_credential"))
         if "host" in data:
-            cred.host = data.get("host")
+            set_parts.append("host = %s")
+            values.append(data.get("host"))
         if "port" in data:
-            cred.port = data.get("port")
+            set_parts.append("port = %s")
+            values.append(data.get("port"))
         if "note" in data:
-            cred.note = data.get("note")
+            set_parts.append("note = %s")
+            values.append(data.get("note"))
         if "is_encrypted" in data:
             pass
 
-        session.flush()
-        payload = _credential_to_dict(cred)
+        if set_parts:
+            values.extend([credential_id, user_id])
+            cursor.execute(
+                f"UPDATE credential SET {', '.join(set_parts)} WHERE id = %s AND id_proprietaire = %s",
+                tuple(values),
+            )
 
-    return jsonify(payload)
+        conn.commit()
+        cursor.execute(
+            """
+            SELECT
+                id,
+                id_proprietaire,
+                nom,
+                username,
+                secret,
+                type_credential,
+                host,
+                port,
+                note,
+                is_encrypted,
+                created_at,
+                updated_at
+            FROM credential
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (credential_id, user_id),
+        )
+        updated_cred = cursor.fetchone()
+    finally:
+        conn.close()
+
+    return jsonify(_credential_to_dict(updated_cred))
 
 
 @storage.route("/credentials/<int:credential_id>", methods=["DELETE"])
 @token_required
 def delete_credential(credential_id):
-    """DELETE /credentials/<id> -> delete credential (output: success bool)."""
     user_id = g.user_data["user_id"]
-    with get_db_session() as session:
-        cred = session.execute(
-            select(Credential).where(
-                Credential.id == credential_id,
-                Credential.id_proprietaire == user_id,
-            )
-        ).scalar_one_or_none()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM credential
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (credential_id, user_id),
+        )
+        cred = cursor.fetchone()
         if cred is None:
             return jsonify({"error": "credential_introuvable"}), 404
-        session.delete(cred)
+
+        cursor.execute(
+            """
+            DELETE FROM credential
+            WHERE id = %s AND id_proprietaire = %s
+            """,
+            (credential_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
     return jsonify({"success": True})
