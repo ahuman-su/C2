@@ -2,6 +2,7 @@
 import terminale from './dashboard/terminale.vue';
 import paramtre from './dashboard/paramtre.vue';
 import meteo from './dashboard/meteo.vue';
+import stockage from './dashboard/stockage.vue';
 
 import {onMounted, ref} from 'vue'
 import { checkTokenValidity } from '@/utils/auth'
@@ -22,14 +23,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div id="fenetre">
-    <terminale :message_shell="sharedMessage"/>
-    <paramtre v-model="sharedMessage"/>
+  <div id="dashboard-page">
+    <div id="fenetre">
+      <terminale :message_shell="sharedMessage"/>
+      <paramtre v-model="sharedMessage"/>
+    </div>
+    <meteo></meteo>
+    <stockage></stockage>
   </div>
-  <meteo></meteo>
 </template>
 
 <style scoped>
+#dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  text-align: left;
+}
+
 #fenetre {
   display: flex;
   flex-direction: row;
@@ -39,6 +51,10 @@ onMounted(async () => {
   padding: 20px; /* Ajoute un peu d'espace autour */
 }
 
-
+@media (max-width: 980px) {
+  #fenetre {
+    flex-direction: column;
+  }
+}
 
 </style>

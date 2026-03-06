@@ -95,17 +95,30 @@ docker compose up --build
 | POST    | `/dashboard/terminal`               | Execution dune commande sur des shells.   |
 | GET     | `/dashboard/shells_list`            | Liste des shells rattaches a lutilisateur.|
 | POST    | `/dashboard/supprimer_shell`        | Suppression dun shell.                    |
+| GET     | `/dashboard/storage`                | Recupere snippets, notes et mots de passe.|
+| POST    | `/dashboard/snippets`               | Cree un snippet personnel.                |
+| POST    | `/dashboard/notes`                  | Cree une note personnelle.                |
+| POST    | `/dashboard/passwords`              | Cree une entree mot de passe.             |
+| DELETE  | `/dashboard/snippets/:id`           | Supprime un snippet personnel.            |
+| DELETE  | `/dashboard/notes/:id`              | Supprime une note personnelle.            |
+| DELETE  | `/dashboard/passwords/:id`          | Supprime une entree mot de passe.         |
 
 Toutes les routes `/dashboard/*` exigent len-tete `Authorization: Bearer <token>`.
 
 ## Schema de base de donnees
 
-`backend/schema.sql` cree deux tables :
+`backend/schema.sql` cree sept tables :
 
 - `utilisateurs` : `id`, `nom`, `prenom`, `username`, `email`, `password`, `ville`.
 - `shell` : `id`, `id_proprietaire`, `nom`, `type_shell` (cle etrangere vers `utilisateurs.id`).
+- `shell_command_log` : `id`, `shell_id`, `id_proprietaire`, `commande`, `sortie`, `created_at`.
+- `command_snippet` : `id`, `id_proprietaire`, `titre`, `commande`, `description`, `type_shell`, `created_at`, `updated_at`.
+- `note` : `id`, `id_proprietaire`, `titre`, `contenu`, `contexte`, `created_at`, `updated_at`.
+- `credential` : `id`, `id_proprietaire`, `nom`, `username`, `secret`, `type_credential`, `host`, `port`, `note`, `is_encrypted`, `created_at`, `updated_at`.
+- `snippet_tag` : `id`, `id_proprietaire`, `libelle`.
+- `snippet_tag_link` : `snippet_id`, `tag_id` (cle primaire composite).
 
-Les mots de passe sont stockes en hash bcrypt et les tokens sont signes en HS256.
+Les mots de passe de connexion utilisateur sont stockes en hash bcrypt et les tokens sont signes en HS256.
 
 ## Conseils de developpement
 

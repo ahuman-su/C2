@@ -1,5 +1,6 @@
 from flask import request, jsonify, Blueprint, g
 import jwt
+from app.db_schema import ensure_dashboard_tables
 from app.jwt_handler import verify_token, token_required
 from .shell import Shell, Pastbin, Forum
 from DB import get_db_connection
@@ -16,22 +17,27 @@ shell_temp = {}
 @terminal.route('/terminal', methods=['GET', 'POST'])
 @token_required
 def terminal_command():
+    ensure_dashboard_tables()
+
     data = request.get_json()
 
     command = data['commande']
     shell_user = data['shell']
     results = {}
+    user_id = g.user_data["user_id"]
 
     # on boucle sur l'ensemble des shell ou l'on veux executer la commade
     for shell_temp in shell_user:
         shell_instance = instances[shell_temp]
         try:
-            output = shell_instance.execute(command)
+            raw_output = shell_instance.execute(command)
         except Exception as e:
-            output = f"Erreur: {str(e)}"
+            raw_output = f"Erreur: {str(e)}"
+
+        save_shell_command_log(user_id, shell_temp, command, raw_output)
 
         # Transforme les sauts de ligne en <br> pour un affichage HTML correct
-        output = output.replace('\n', '<br>')
+        output = raw_output.replace('\n', '<br>')
 
         results[shell_temp] = output
 
@@ -41,6 +47,8 @@ def terminal_command():
 @listener.route('/listener', methods=['POST'])
 @token_required
 def listener_command():
+    ensure_dashboard_tables()
+
     data = request.get_json()
     print(data)
     nom = data['nom']
@@ -92,6 +100,8 @@ def listener_command():
 @shells_list_bp.route('/shells_list', methods=['GET', 'POST'])
 @token_required
 def shells_list():
+    ensure_dashboard_tables()
+
     shells = []
     user_data = g.user_data
     user_id = user_data["user_id"]
@@ -114,6 +124,8 @@ def shells_list():
 @supprimer_shell_bp.route('/supprimer_shell', methods=['POST'])
 @token_required
 def supprimer_shell():
+    ensure_dashboard_tables()
+
     data = request.get_json()
     id = data["id"]
 
@@ -145,15 +157,47 @@ def supprimer_shell():
     return jsonify({"resulat": "supprimer"})
 
 
-def save_shell_to_db(user_id, nom, type):
+def save_shell_to_db(user_id, nom, shell_type):
+    ensure_dashboard_tables()
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
                    INSERT INTO shell (id_proprietaire, nom, type_shell)
                    VALUES (%s, %s, %s)
-                   """, (user_id, nom, type))
+                   """, (user_id, nom, shell_type))
 
     conn.commit()
     conn.close()
 
+
+def save_shell_command_log(user_id, shell_name, command, output):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM shell
+            WHERE id_proprietaire = %s AND nom = %s
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (user_id, shell_name),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return
+
+        cursor.execute(
+            """
+            INSERT INTO shell_command_log (shell_id, id_proprietaire, commande, sortie)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (row["id"], user_id, command, output),
+        )
+        conn.commit()
+    finally:
+        conn.close()

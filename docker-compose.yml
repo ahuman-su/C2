@@ -27,6 +27,7 @@ services:
       - ./backend:/app
     ports:
       - "5000:5000"
+      - "5001-5050:5001-5050"
     environment:
       FLASK_DEBUG: "1"
       DB_HOST: "db"
