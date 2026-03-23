@@ -75,6 +75,9 @@ async function onSubmit() {
   if (!trimmed) return;
 
   const result = await send_command(trimmed);
+  if (trimmed.toLowerCase() === 'toto') {
+    window.dispatchEvent(new Event('machine-info-updated'))
+  }
 
   history.value.push({ command: trimmed, result, shell_used: message_shell });
   command.value = '';

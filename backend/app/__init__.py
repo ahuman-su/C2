@@ -15,6 +15,7 @@ def create_app():
         listener,
         shells_list_bp,
         supprimer_shell_bp,
+        machine_info_bp,
     )
     from .api.routes.dashboard.meteo import meteo
     from .api.routes.dashboard.storage import storage_bp
@@ -33,6 +34,7 @@ def create_app():
     app.register_blueprint(listener, url_prefix='/dashboard')
     app.register_blueprint(shells_list_bp, url_prefix='/dashboard')
     app.register_blueprint(supprimer_shell_bp, url_prefix='/dashboard')
+    app.register_blueprint(machine_info_bp, url_prefix='/dashboard')
     app.register_blueprint(meteo, url_prefix='/dashboard')
     app.register_blueprint(storage_bp, url_prefix='/dashboard')
     print("✅ Blueprints enregistrés avec succès !")

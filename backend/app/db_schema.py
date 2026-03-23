@@ -26,6 +26,23 @@ TABLE_DEFINITIONS = (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """
+    CREATE TABLE IF NOT EXISTS shell_machine_info (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shell_id INT NOT NULL,
+        id_proprietaire INT NOT NULL,
+        id_output TEXT NOT NULL,
+        groups_output TEXT NOT NULL,
+        users_output TEXT NOT NULL,
+        uname_output TEXT NOT NULL,
+        raw_payload LONGTEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_shell_machine_info_shell FOREIGN KEY (shell_id) REFERENCES shell(id) ON DELETE CASCADE,
+        CONSTRAINT fk_shell_machine_info_utilisateur FOREIGN KEY (id_proprietaire) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+        CONSTRAINT uq_shell_machine_info_shell UNIQUE (shell_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """,
+    """
     CREATE TABLE IF NOT EXISTS command_snippet (
         id INT AUTO_INCREMENT PRIMARY KEY,
         id_proprietaire INT NOT NULL,

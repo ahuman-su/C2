@@ -2,6 +2,7 @@
 import terminale from './dashboard/terminale.vue';
 import paramtre from './dashboard/paramtre.vue';
 import meteo from './dashboard/meteo.vue';
+import machineinfo from './dashboard/machineinfo.vue';
 import stockage from './dashboard/stockage.vue';
 
 import {onMounted, ref} from 'vue'
@@ -29,6 +30,7 @@ onMounted(async () => {
       <paramtre v-model="sharedMessage"/>
     </div>
     <meteo></meteo>
+    <machineinfo></machineinfo>
     <stockage></stockage>
   </div>
 </template>
