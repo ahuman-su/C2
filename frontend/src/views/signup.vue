@@ -12,7 +12,6 @@ const formData = ref({
   username: '',
   email: '',
   password: '',
-  ville : '',
 })
 
 // Fonction pour gérer la soumission du formulaire
@@ -27,14 +26,7 @@ const onSubmit = async (e) => {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      nom: nom.value,
-      prenom: prenom.value,
-      username: username.value,
-      email: email.value,
-      password: password.value,
-      ville: ville.value,
-    })
+    body: JSON.stringify(formData.value)
   })
 
   const reponse_login = await response.json()
@@ -107,17 +99,6 @@ const onSubmit = async (e) => {
         id="password"
         type="password"
         v-model="formData.password"
-        required
-        class="form-control"
-      />
-    </div>
-
-    <div class="form-group">
-      <label for="ville">Ville :</label>
-      <input
-        id="ville"
-        type="ville"
-        v-model="formData.ville"
         required
         class="form-control"
       />

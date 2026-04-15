@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import terminale from './dashboard/terminale.vue';
 import paramtre from './dashboard/paramtre.vue';
-import meteo from './dashboard/meteo.vue';
+import pwnedPassword from './dashboard/pwnedPassword.vue';
 import machineinfo from './dashboard/machineinfo.vue';
 import stockage from './dashboard/stockage.vue';
 
@@ -29,7 +29,7 @@ onMounted(async () => {
       <terminale :message_shell="sharedMessage"/>
       <paramtre v-model="sharedMessage"/>
     </div>
-    <meteo></meteo>
+    <pwned-password></pwned-password>
     <machineinfo></machineinfo>
     <stockage></stockage>
   </div>

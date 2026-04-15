@@ -17,7 +17,7 @@ def create_app():
         supprimer_shell_bp,
         machine_info_bp,
     )
-    from .api.routes.dashboard.meteo import meteo
+    from .api.routes.dashboard.hibp import hibp
     from .api.routes.dashboard.storage import storage_bp
     from .db_schema import ensure_dashboard_tables
 
@@ -35,7 +35,7 @@ def create_app():
     app.register_blueprint(shells_list_bp, url_prefix='/dashboard')
     app.register_blueprint(supprimer_shell_bp, url_prefix='/dashboard')
     app.register_blueprint(machine_info_bp, url_prefix='/dashboard')
-    app.register_blueprint(meteo, url_prefix='/dashboard')
+    app.register_blueprint(hibp, url_prefix='/dashboard')
     app.register_blueprint(storage_bp, url_prefix='/dashboard')
     print("✅ Blueprints enregistrés avec succès !")
 

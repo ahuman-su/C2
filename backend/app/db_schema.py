@@ -5,6 +5,16 @@ _dashboard_schema_ready = False
 
 TABLE_DEFINITIONS = (
     """
+    CREATE TABLE IF NOT EXISTS utilisateurs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nom VARCHAR(255) NOT NULL,
+        prenom VARCHAR(255) NOT NULL,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARBINARY(255) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """,
+    """
     CREATE TABLE IF NOT EXISTS shell (
         id INT AUTO_INCREMENT PRIMARY KEY,
         id_proprietaire INT NOT NULL,
@@ -209,6 +219,25 @@ def _table_row_count(cursor, table_name):
     return 0 if not row else row["total"]
 
 
+def _column_exists(cursor, table_name, column_name):
+    cursor.execute(f"SHOW COLUMNS FROM {table_name} LIKE %s", (column_name,))
+    return cursor.fetchone()
+
+
+def _ensure_user_table_compatibility(cursor):
+    if not _table_exists(cursor, "utilisateurs"):
+        return
+
+    ville_column = _column_exists(cursor, "utilisateurs", "ville")
+    if ville_column and ville_column["Null"] == "NO":
+        cursor.execute(
+            """
+            ALTER TABLE utilisateurs
+            MODIFY COLUMN ville VARCHAR(255) NULL DEFAULT NULL
+            """
+        )
+
+
 def _migrate_legacy_tables(cursor):
     for migration in LEGACY_MIGRATIONS:
         if not _table_exists(cursor, migration["legacy_table"]):
@@ -241,6 +270,7 @@ def ensure_dashboard_tables():
     try:
         for statement in TABLE_DEFINITIONS:
             cursor.execute(statement)
+        _ensure_user_table_compatibility(cursor)
         _migrate_legacy_tables(cursor)
         conn.commit()
         _dashboard_schema_ready = True
