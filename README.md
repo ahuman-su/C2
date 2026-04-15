@@ -16,7 +16,7 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
 ## Fonctionnalites
 
 - Authentification JWT avec inscription et connexion stockees dans MySQL.
-- Gestion de listeners reverse shell, Pastebin et forum.
+- Gestion de listeners reverse shell et forum.
 - Terminal multi-shell pour diffuser une commande vers plusieurs cibles.
 - Dashboard obscur concu pour lanalyse temps reel.
 - Integrations externes configurees via les fichiers `.env`.
@@ -45,11 +45,7 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
    DB_NAME=c2
    DB_USER=c2
    DB_PASSWORD=motdepasse
-   API_KEY=cle-pastebin
-   USER_PAST=utilisateur-pastebin
-   PASSWORD=motdepasse-pastebin
    ```
-   `API_KEY`, `USER_PAST` et `PASSWORD` sont requis si vous activez le listener Pastebin.
 3. Initialiser MySQL (tables via `backend/schema.sql`). Exemple :
    ```bash
    mysql -u c2 -p c2 < schema.sql
@@ -95,17 +91,33 @@ docker compose up --build
 | POST    | `/dashboard/terminal`               | Execution dune commande sur des shells.   |
 | GET     | `/dashboard/shells_list`            | Liste des shells rattaches a lutilisateur.|
 | POST    | `/dashboard/supprimer_shell`        | Suppression dun shell.                    |
+| POST    | `/dashboard/pwned-password`         | Verifie un mot de passe via HIBP.         |
+| GET     | `/dashboard/storage`                | Recupere snippets, notes et mots de passe.|
+| POST    | `/dashboard/snippets`               | Cree un snippet personnel.                |
+| POST    | `/dashboard/notes`                  | Cree une note personnelle.                |
+| POST    | `/dashboard/passwords`              | Cree une entree mot de passe.             |
+| DELETE  | `/dashboard/snippets/:id`           | Supprime un snippet personnel.            |
+| DELETE  | `/dashboard/notes/:id`              | Supprime une note personnelle.            |
+| DELETE  | `/dashboard/passwords/:id`          | Supprime une entree mot de passe.         |
 
 Toutes les routes `/dashboard/*` exigent len-tete `Authorization: Bearer <token>`.
 
 ## Schema de base de donnees
 
-`backend/schema.sql` cree deux tables :
+`backend/schema.sql` cree les tables suivantes :
 
-- `utilisateurs` : `id`, `nom`, `prenom`, `username`, `email`, `password`, `ville`.
+- `utilisateurs` : `id`, `nom`, `prenom`, `username`, `email`, `password`.
 - `shell` : `id`, `id_proprietaire`, `nom`, `type_shell` (cle etrangere vers `utilisateurs.id`).
+- `shell_command_log` : `id`, `shell_id`, `id_proprietaire`, `commande`, `sortie`, `created_at`.
+- `shell_machine_info` : `id`, `shell_id`, `id_proprietaire`, `id_output`, `groups_output`, `users_output`, `uname_output`, `raw_payload`, `created_at`, `updated_at`.
+- `command_snippet` : `id`, `id_proprietaire`, `titre`, `commande`, `description`, `type_shell`, `created_at`, `updated_at`.
+- `note` : `id`, `id_proprietaire`, `titre`, `contenu`, `contexte`, `created_at`, `updated_at`.
+- `credential` : `id`, `id_proprietaire`, `nom`, `username`, `secret`, `type_credential`, `host`, `port`, `note`, `is_encrypted`, `created_at`, `updated_at`.
+- `snippet_tag` : `id`, `id_proprietaire`, `libelle`.
+- `snippet_tag_link` : `snippet_id`, `tag_id` (cle primaire composite).
 
-Les mots de passe sont stockes en hash bcrypt et les tokens sont signes en HS256.
+Les mots de passe de connexion utilisateur sont stockes en hash bcrypt et les tokens sont signes en HS256.
+La verification HIBP utilise lAPI Pwned Passwords en k-anonymity, sans cle API HIBP.
 
 ## Conseils de developpement
 
