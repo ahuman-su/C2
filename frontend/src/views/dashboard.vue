@@ -14,6 +14,11 @@ const sharedMessage = ref('')
 
 const router = useRouter()
 
+function logout() {
+  sessionStorage.removeItem('token')
+  router.push('/signin')
+}
+
 onMounted(async () => {
   const isValid = await checkTokenValidity()
   if (!isValid) {
@@ -24,38 +29,95 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div id="dashboard-page">
-    <div id="fenetre">
-      <terminale :message_shell="sharedMessage"/>
-      <paramtre v-model="sharedMessage"/>
-    </div>
-    <pwned-password></pwned-password>
-    <machineinfo></machineinfo>
-    <stockage></stockage>
+  <div class="dashboard-page">
+    <main class="dashboard-main">
+      <section id="fenetre">
+        <terminale :message_shell="sharedMessage"/>
+        <paramtre v-model="sharedMessage"/>
+      </section>
+
+      <pwned-password></pwned-password>
+      <machineinfo></machineinfo>
+      <stockage></stockage>
+
+      <div class="logout-row">
+        <button class="bouton-header" type="button" @click="logout">deconnexion</button>
+      </div>
+    </main>
   </div>
 </template>
 
 <style scoped>
-#dashboard-page {
+:global(body) {
+  display: block;
+  min-height: 100vh;
+  background: #101010;
+}
+
+:global(#app) {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  text-align: left;
+}
+
+.dashboard-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(179, 136, 255, 0.12), transparent 28%),
+    radial-gradient(circle at 14% 78%, rgba(0, 255, 128, 0.12), transparent 34%),
+    #101010;
+  color: #fff;
+  font-family: monospace;
+}
+
+.bouton-header {
+  color: #646cff;
+  font-size: 1.2em;
+  border: 1px solid #646cff;
+  padding: 0.5em 1em;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bouton-header:hover {
+  background: rgba(100, 108, 255, 0.12);
+}
+
+.dashboard-main {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  text-align: left;
+  gap: 1rem;
+}
+
+.logout-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
 }
 
 #fenetre {
   display: flex;
   flex-direction: row;
-  justify-content: space-between; /* Espace les éléments uniformément */
-  align-items: flex-start; /* Aligne les éléments en haut */
-  gap: 20px; /* Ajoute un espace entre les éléments */
-  padding: 20px; /* Ajoute un peu d'espace autour */
+  align-items: stretch;
+  gap: 1rem;
 }
 
 @media (max-width: 980px) {
+  .dashboard-main {
+    padding: 1.5rem 0 2rem;
+  }
+
   #fenetre {
     flex-direction: column;
+  }
+
+  .logout-row {
+    justify-content: center;
   }
 }
 

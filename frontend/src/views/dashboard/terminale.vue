@@ -75,7 +75,7 @@ async function onSubmit() {
   if (!trimmed) return;
 
   const result = await send_command(trimmed);
-  if (trimmed.toLowerCase() === 'toto') {
+  if (trimmed.toLowerCase() === 'system_probe') {
     window.dispatchEvent(new Event('machine-info-updated'))
   }
 
@@ -91,7 +91,9 @@ async function onSubmit() {
 
 <style scoped>
 #terminal {
-  width: 70%;
+  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   height: 500px;
   background: #000;
   color: #0f0;
@@ -146,5 +148,11 @@ async function onSubmit() {
   font-family: monospace;
   font-size: 1em;
   flex-grow: 1;
+}
+
+@media (max-width: 980px) {
+  #terminal {
+    height: 420px;
+  }
 }
 </style>

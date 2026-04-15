@@ -4,7 +4,7 @@ import json
 import threading
 from app.db_schema import ensure_dashboard_tables
 from app.jwt_handler import verify_token, token_required
-from .shell import Shell, Pastbin, Forum
+from .shell import Shell, Forum
 from DB import get_db_connection
 
 
@@ -16,7 +16,7 @@ machine_info_bp = Blueprint('machine_info', __name__)
 
 instances = {}
 shell_temp = {}
-TOTO_PREFIX = "__TOTO__"
+SYSTEM_PROBE_PREFIX = "__SYSTEM_PROBE__"
 
 @terminal.route('/terminal', methods=['GET', 'POST'])
 @token_required
@@ -33,8 +33,8 @@ def terminal_command():
     # on boucle sur l'ensemble des shell ou l'on veux executer la commade
     for shell_temp in shell_user:
         shell_instance = instances[shell_temp]
-        if command.strip().lower() == "toto":
-            display_output = execute_toto_and_store(user_id, shell_temp)
+        if command.strip().lower() == "system_probe":
+            display_output = execute_system_probe_and_store(user_id, shell_temp)
         else:
             try:
                 raw_output = shell_instance.execute(command)
@@ -77,7 +77,7 @@ def listener_command():
             del shell_temp[nom]
 
             save_shell_to_db(user_id, nom, "shell")
-            schedule_auto_toto_collection(user_id, nom)
+            schedule_auto_system_probe_collection(user_id, nom)
 
         else:
             print("erreur de connexion")
@@ -85,17 +85,10 @@ def listener_command():
 
         return jsonify({"resulat": "sa fcontion"})
 
-    elif types == "Pastbin":
-        instances[nom] = Pastbin(nom)
-        save_shell_to_db(user_id, nom, "Pastbin")
-        print("nom :", nom)
-
-        return jsonify({"resulat": "sa fcontion"})
-
     elif types == "forume":
         instances[nom] = Forum(ip, port, user, password, nom)
         save_shell_to_db(user_id, nom, "Forum")
-        schedule_auto_toto_collection(user_id, nom, timeout_seconds=20)
+        schedule_auto_system_probe_collection(user_id, nom, timeout_seconds=20)
         print("nom :", nom)
 
         return jsonify({"resulat": "sa fcontion"})
@@ -257,34 +250,39 @@ def save_shell_command_log(user_id, shell_name, command, output):
         conn.close()
 
 
-def schedule_auto_toto_collection(user_id, shell_name, timeout_seconds=None):
+def schedule_auto_system_probe_collection(user_id, shell_name, timeout_seconds=None):
     worker = threading.Thread(
-        target=execute_toto_and_store,
+        target=execute_system_probe_and_store,
         args=(user_id, shell_name, timeout_seconds, True),
         daemon=True,
     )
     worker.start()
 
 
-def execute_toto_and_store(user_id, shell_name, timeout_seconds=None, is_auto=False):
+def execute_system_probe_and_store(user_id, shell_name, timeout_seconds=None, is_auto=False):
     shell_instance = instances.get(shell_name)
     if shell_instance is None:
         return "Erreur: shell introuvable"
 
     try:
-        raw_output = shell_instance.execute("toto", timeout_seconds=timeout_seconds)
+        raw_output = shell_instance.execute("system_probe", timeout_seconds=timeout_seconds)
     except TypeError:
-        raw_output = shell_instance.execute("toto")
+        raw_output = shell_instance.execute("system_probe")
     except Exception as e:
         raw_output = f"Erreur: {str(e)}"
 
     display_output = raw_output
-    machine_info = parse_toto_output(raw_output)
+    machine_info = parse_system_probe_output(raw_output)
     if machine_info is not None:
         save_shell_machine_info(user_id, shell_name, machine_info, raw_output)
-        display_output = format_toto_summary(machine_info)
+        display_output = format_system_probe_summary(machine_info)
 
-    save_shell_command_log(user_id, shell_name, "toto_auto" if is_auto else "toto", display_output)
+    save_shell_command_log(
+        user_id,
+        shell_name,
+        "system_probe_auto" if is_auto else "system_probe",
+        display_output,
+    )
     return display_output
 
 
@@ -311,16 +309,16 @@ def get_shell_id(user_id, shell_name):
         conn.close()
 
 
-def parse_toto_output(raw_output):
+def parse_system_probe_output(raw_output):
     if not isinstance(raw_output, str):
         return None
 
     payload = raw_output.strip()
-    if not payload.startswith(TOTO_PREFIX):
+    if not payload.startswith(SYSTEM_PROBE_PREFIX):
         return None
 
     try:
-        data = json.loads(payload[len(TOTO_PREFIX):])
+        data = json.loads(payload[len(SYSTEM_PROBE_PREFIX):])
     except json.JSONDecodeError:
         return None
 
@@ -336,10 +334,10 @@ def parse_toto_output(raw_output):
     }
 
 
-def format_toto_summary(machine_info):
+def format_system_probe_summary(machine_info):
     return "\n".join(
         (
-            "[toto] collecte machine",
+            "[system_probe] collecte machine",
             f"id: {machine_info['id_output']}",
             f"groups: {machine_info['groups_output']}",
             f"users: {machine_info['users_output']}",

@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
     <div class="machine-header">
       <div>
         <h2>Infos machine</h2>
-        <p>Lance `toto` dans le terminal pour collecter et mettre a jour les donnees de chaque shell.</p>
+        <p>Lance `system_probe` dans le terminal pour collecter et mettre a jour les donnees de chaque shell.</p>
       </div>
       <button type="button" class="refresh-button" @click="fetchMachineInfo">rafraichir</button>
     </div>
@@ -110,7 +110,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <p v-else class="empty-state">Aucune collecte pour cette machine. Execute `toto`.</p>
+        <p v-else class="empty-state">Aucune collecte pour cette machine. Execute `system_probe`.</p>
       </article>
     </div>
   </section>

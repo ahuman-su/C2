@@ -21,7 +21,6 @@ const type = ref('')
 const portError = ref('')
 const typeError = ref('')
 
-const isPastbin = computed(() => type.value === 'Pastbin')
 const isShell = computed(() => type.value === 'reverse shell')
 const isForume = computed(() => type.value === 'forume')
 
@@ -63,11 +62,7 @@ const validatePassword = () => {
 // Reset propres au switch
 watch(type, (nv) => {
   validateType()
-  if (nv === 'Pastbin') {
-    port.value = null; portError.value = ''
-    forumeIp.value = ''; forumeUser.value = ''; forumePassword.value = ''
-    ipError.value = ''; userError.value = ''; passwordError.value = ''
-  } else if (nv === 'reverse shell') {
+  if (nv === 'reverse shell') {
     forumeIp.value = ''; forumeUser.value = ''; forumePassword.value = ''
     ipError.value = ''; userError.value = ''; passwordError.value = ''
   } else if (nv === 'forume') {
@@ -154,10 +149,14 @@ const Submit_delete = async (shell: Shell) => {
   <div id="paramtre">
     <div id="les-bouton">
       <form class="les-bouton-form" @submit="(e) => listener(e, 'listener')">
-        <button class="bouton" type="submit">listener</button>
+        <button class="bouton" :class="{ 'bouton-actif': affichage === 'listener' }" type="submit">
+          listener
+        </button>
       </form>
       <form class="les-bouton-form" @submit="(e) => listener(e, 'list')">
-        <button class="bouton" type="submit">list</button>
+        <button class="bouton" :class="{ 'bouton-actif': affichage === 'list' }" type="submit">
+          liste
+        </button>
       </form>
     </div>
 
@@ -173,7 +172,6 @@ const Submit_delete = async (shell: Shell) => {
             <label>type connexion</label>
             <select v-model="type" @input="validateType" class="form-control" required>
               <option value=""></option>
-              <option value="Pastbin">Pastbin</option>
               <option value="reverse shell">reverse shell</option>
               <option value="forume">forume</option>
             </select>
@@ -213,32 +211,204 @@ const Submit_delete = async (shell: Shell) => {
         </form>
       </div>
 
-      <div v-else-if="affichage ==='list'">
+      <div v-else-if="affichage ==='list'" class="liste-view">
         <table v-if="shells.length > 0">
           <thead>
-            <tr><th>ID</th><th>Nom</th></tr>
+            <tr><th>ID</th><th>Nom</th><th>Actif</th><th>Action</th></tr>
           </thead>
           <tbody>
             <tr v-for="shell in shells" :key="shell.id">
               <td>{{ shell.id }}</td>
               <td>{{ shell.nom }}</td>
               <td><input type="checkbox" :value="shell" v-model="selectionnes" /></td>
-              <td><button class="bouton" @click.prevent="Submit_delete(shell)">supprimer</button></td>
+              <td>
+                <button class="table-button" @click.prevent="Submit_delete(shell)">supprimer</button>
+              </td>
             </tr>
           </tbody>
         </table>
-        <p v-else>Aucun shell disponible.</p>
+        <p v-else class="empty-state">Aucun shell disponible.</p>
       </div>
 
-      <div v-else>probleme</div>
+      <div v-else class="empty-state">probleme</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-#paramtre { width: 30%; height: 500px; font-family: monospace; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #0f0; border-radius: 8px; }
-#les-bouton { display: flex; width: 100%; }
-.les-bouton-form { width: 50%; }
-.bouton { width: 100%; padding: 10px; background-color: rgba(157, 76, 175, 0.38); color: white; border: none; cursor: pointer; font-size: 1em; font-weight: 500; font-family: inherit; transition: background-color 0.25s; }
-.bouton:hover { background-color: #b388ff; }
+#paramtre {
+  width: 100%;
+  max-width: 340px;
+  flex: 0 0 340px;
+  height: 500px;
+  font-family: monospace;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #0f0;
+  border-radius: 8px;
+  background: #000;
+  color: #0f0;
+}
+
+#les-bouton {
+  display: flex;
+  width: 100%;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.les-bouton-form {
+  width: 50%;
+}
+
+.bouton,
+.submit-button,
+.table-button {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  transition: background-color 0.25s, border-color 0.25s, color 0.25s;
+}
+
+.bouton {
+  width: 100%;
+  padding: 10px;
+  background: rgba(157, 76, 175, 0.22);
+  color: rgba(230, 230, 255, 0.92);
+  border: 1px solid rgba(179, 136, 255, 0.22);
+}
+
+.bouton:hover,
+.submit-button:hover,
+.table-button:hover {
+  background-color: #b388ff;
+  color: #fff;
+}
+
+.bouton-actif {
+  background: rgba(157, 76, 175, 0.52);
+  border-color: rgba(179, 136, 255, 0.6);
+  color: #fff;
+}
+
+#test {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.form-group label {
+  color: #fff;
+}
+
+.form-control {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid rgba(0, 255, 0, 0.28);
+  border-radius: 6px;
+  background: rgba(12, 12, 12, 0.95);
+  color: #d3ffd3;
+  font-family: inherit;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #0f0;
+  box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.12);
+}
+
+.submit-button {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: rgba(157, 76, 175, 0.38);
+  color: #fff;
+  margin-top: 0.35rem;
+}
+
+.error-message {
+  color: #ff9d9d;
+}
+
+.liste-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(7, 18, 7, 0.9);
+  border: 1px solid rgba(0, 255, 0, 0.28);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+thead {
+  background: rgba(157, 76, 175, 0.18);
+}
+
+th,
+td {
+  padding: 0.7rem 0.55rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.14);
+  color: #d6ffd6;
+}
+
+th {
+  color: #fff;
+  font-weight: 700;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: rgba(0, 255, 0, 0.05);
+}
+
+input[type='checkbox'] {
+  accent-color: #b388ff;
+}
+
+.table-button {
+  padding: 0.45rem 0.75rem;
+  background: rgba(165, 38, 38, 0.45);
+  color: #fff;
+}
+
+.table-button:hover {
+  background: rgba(219, 80, 80, 0.85);
+}
+
+.empty-state {
+  margin: 0;
+  color: rgba(178, 255, 178, 0.72);
+}
+
+@media (max-width: 980px) {
+  #paramtre {
+    max-width: none;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 420px;
+  }
+}
 </style>
