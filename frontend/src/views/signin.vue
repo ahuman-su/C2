@@ -35,7 +35,7 @@ const submit = async (event) => {
       return
     }
 
-    errorMessage.value = 'Mauvais email ou mot de passe.'
+    errorMessage.value = data.message || 'Mauvais email ou mot de passe.'
   } catch (error) {
     errorMessage.value = 'Erreur lors de la connexion.'
   } finally {

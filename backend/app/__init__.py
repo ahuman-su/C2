@@ -19,12 +19,30 @@ def create_app():
     )
     from .api.routes.dashboard.hibp import hibp
     from .api.routes.dashboard.storage import storage_bp
+    from .api.routes.dashboard.admin import admin_bp
     from .db_schema import ensure_dashboard_tables
+    from .account_cleanup import delete_expired_accounts_if_due
 
     try:
         ensure_dashboard_tables()
     except Exception as exc:
         print(f"⚠️ Initialisation differree du schema dashboard: {exc}")
+
+    try:
+        deleted_accounts = delete_expired_accounts_if_due(force=True)
+        if deleted_accounts:
+            print(f"Comptes expires supprimes: {deleted_accounts}")
+    except Exception as exc:
+        print(f"Nettoyage initial des comptes expires impossible: {exc}")
+
+    @app.before_request
+    def cleanup_expired_accounts_before_request():
+        try:
+            deleted_accounts = delete_expired_accounts_if_due()
+            if deleted_accounts:
+                print(f"Comptes expires supprimes: {deleted_accounts}")
+        except Exception as exc:
+            print(f"Nettoyage des comptes expires impossible: {exc}")
 
     app.register_blueprint(api_bp, url_prefix='/api')      # Route de l'API
     app.register_blueprint(signup_bp, url_prefix='/auth')  # Route pour signup
@@ -37,6 +55,7 @@ def create_app():
     app.register_blueprint(machine_info_bp, url_prefix='/dashboard')
     app.register_blueprint(hibp, url_prefix='/dashboard')
     app.register_blueprint(storage_bp, url_prefix='/dashboard')
+    app.register_blueprint(admin_bp, url_prefix='/dashboard')
     print("✅ Blueprints enregistrés avec succès !")
 
 

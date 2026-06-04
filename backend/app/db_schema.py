@@ -17,7 +17,11 @@ TABLE_DEFINITIONS = (
         prenom VARCHAR(255) NOT NULL,
         username VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
-        password VARBINARY(255) NOT NULL
+        password VARBINARY(255) NOT NULL,
+        is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
+        is_invited BOOLEAN NOT NULL DEFAULT FALSE,
+        expiration_date DATETIME DEFAULT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """
@@ -112,6 +116,13 @@ TABLE_DEFINITIONS = (
         CONSTRAINT fk_snippet_tag_link_tag FOREIGN KEY (tag_id) REFERENCES snippet_tag(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
+)
+
+USER_COLUMNS = (
+    ("is_admin", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("is_blocked", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("is_invited", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("expiration_date", "DATETIME DEFAULT NULL"),
 )
 
 LEGACY_MIGRATIONS = (
@@ -254,6 +265,18 @@ def _drop_unused_columns(cursor):
             )
 
 
+def _ensure_user_columns(cursor):
+    if not _table_exists(cursor, "utilisateurs"):
+        return
+
+    for column_name, column_definition in USER_COLUMNS:
+        if _column_exists(cursor, "utilisateurs", column_name):
+            continue
+        cursor.execute(
+            f"ALTER TABLE utilisateurs ADD COLUMN `{column_name}` {column_definition}"
+        )
+
+
 def ensure_dashboard_tables():
     global _dashboard_schema_ready
     if _dashboard_schema_ready:
@@ -265,6 +288,7 @@ def ensure_dashboard_tables():
     try:
         for statement in TABLE_DEFINITIONS:
             cursor.execute(statement)
+        _ensure_user_columns(cursor)
         _migrate_legacy_tables(cursor)
         _drop_unused_columns(cursor)
         conn.commit()

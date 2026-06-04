@@ -1,6 +1,5 @@
 from flask import request, jsonify, Blueprint
-import jwt
-from app.jwt_handler import verify_token
+from app.jwt_handler import validate_token
 
 check = Blueprint('check-token', __name__)
 
@@ -12,15 +11,8 @@ def check_token():
 
     token = auth_header.split(" ")[1]
 
-    try:
-        result = verify_token(token)
-        # Convertir le résultat jsonify en dictionnaire
-        result_dict = result.get_json()
-        if result_dict.get("success"):
-            return jsonify({"valid": True})
-        else:
-            return jsonify({"valid": False, "error": result_dict.get("error")}), 401
-    except jwt.ExpiredSignatureError:
-        return jsonify({"valid": False, "error": "expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"valid": False, "error": "invalid"}), 401
+    result = validate_token(token)
+    if result["success"]:
+        return jsonify({"valid": True})
+
+    return jsonify({"valid": False, "error": result["message"]}), result["status"]

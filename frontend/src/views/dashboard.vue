@@ -4,6 +4,7 @@ import paramtre from './dashboard/paramtre.vue';
 import pwnedPassword from './dashboard/pwnedPassword.vue';
 import machineinfo from './dashboard/machineinfo.vue';
 import stockage from './dashboard/stockage.vue';
+import adminInvites from './dashboard/adminInvites.vue';
 
 import {onMounted, ref} from 'vue'
 import { checkTokenValidity } from '@/utils/auth'
@@ -39,6 +40,7 @@ onMounted(async () => {
       <pwned-password></pwned-password>
       <machineinfo></machineinfo>
       <stockage></stockage>
+      <admin-invites></admin-invites>
 
       <div class="logout-row">
         <button class="bouton-header" type="button" @click="logout">deconnexion</button>
