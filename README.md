@@ -24,7 +24,7 @@ Tableau de bord de command and control construit autour dune API Flask, dune int
 ## Prerequis
 
 - Python 3.11 ou plus (teste avec 3.12)
-- Node.js 18 ou plus
+- Node.js 20 ou plus pour installer toutes les dependances frontend sans avertissement
 - npm (fourni avec Node)
 
 ## Mise en place du backend
@@ -78,6 +78,28 @@ La base est stockée dans le volume `db-data`.
 ```bash
 docker compose up --build
 ```
+
+## Tests d'integration
+
+Backend Flask :
+
+```bash
+cd backend
+source .venv/bin/activate
+pip install -r requirements.txt
+pytest
+```
+
+Frontend Vue :
+
+```bash
+cd frontend
+npm install
+npm run test
+```
+
+La suite backend utilise le client de test Flask avec une base en memoire pour couvrir les flux HTTP sans lancer MySQL.
+La suite frontend utilise Vitest, jsdom et Vue Test Utils pour tester les vues avec router et appels API simules.
 
 ## Endpoints principaux
 

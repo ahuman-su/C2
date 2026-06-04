@@ -9,7 +9,7 @@ from app.jwt_handler import local_now
 signup_bp = Blueprint('signup', __name__)
 
 def get_expiration_date(hours):
-    if not hours:
+    if hours is None or hours == "":
         return None
 
     try:
