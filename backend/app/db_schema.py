@@ -3,6 +3,12 @@ from DB import get_db_connection
 
 _dashboard_schema_ready = False
 
+UNUSED_COLUMNS = {
+    "command_snippet": ("description",),
+    "note": ("contexte",),
+    "credential": ("type_credential", "host", "port", "note"),
+}
+
 TABLE_DEFINITIONS = (
     """
     CREATE TABLE IF NOT EXISTS utilisateurs (
@@ -11,7 +17,11 @@ TABLE_DEFINITIONS = (
         prenom VARCHAR(255) NOT NULL,
         username VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
-        password VARBINARY(255) NOT NULL
+        password VARBINARY(255) NOT NULL,
+        is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
+        is_invited BOOLEAN NOT NULL DEFAULT FALSE,
+        expiration_date DATETIME DEFAULT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """
@@ -58,7 +68,6 @@ TABLE_DEFINITIONS = (
         id_proprietaire INT NOT NULL,
         titre VARCHAR(255) NOT NULL,
         commande TEXT NOT NULL,
-        description TEXT,
         type_shell VARCHAR(50) DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -71,7 +80,6 @@ TABLE_DEFINITIONS = (
         id_proprietaire INT NOT NULL,
         titre VARCHAR(255) NOT NULL,
         contenu TEXT NOT NULL,
-        contexte VARCHAR(255) DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_note_utilisateur FOREIGN KEY (id_proprietaire) REFERENCES utilisateurs(id) ON DELETE CASCADE
@@ -84,10 +92,6 @@ TABLE_DEFINITIONS = (
         nom VARCHAR(255) NOT NULL,
         username VARCHAR(255) DEFAULT '',
         secret TEXT NOT NULL,
-        type_credential VARCHAR(100) DEFAULT '',
-        host VARCHAR(255) DEFAULT '',
-        port INT DEFAULT NULL,
-        note TEXT,
         is_encrypted TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -114,6 +118,13 @@ TABLE_DEFINITIONS = (
     """,
 )
 
+USER_COLUMNS = (
+    ("is_admin", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("is_blocked", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("is_invited", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("expiration_date", "DATETIME DEFAULT NULL"),
+)
+
 LEGACY_MIGRATIONS = (
     {
         "legacy_table": "snippets",
@@ -124,7 +135,6 @@ LEGACY_MIGRATIONS = (
                 id_proprietaire,
                 titre,
                 commande,
-                description,
                 type_shell,
                 created_at,
                 updated_at
@@ -134,7 +144,6 @@ LEGACY_MIGRATIONS = (
                 id_proprietaire,
                 titre,
                 contenu,
-                '',
                 langage,
                 created_at,
                 created_at
@@ -150,7 +159,6 @@ LEGACY_MIGRATIONS = (
                 id_proprietaire,
                 titre,
                 contenu,
-                contexte,
                 created_at,
                 updated_at
             )
@@ -159,7 +167,6 @@ LEGACY_MIGRATIONS = (
                 id_proprietaire,
                 titre,
                 contenu,
-                '',
                 created_at,
                 created_at
             FROM notes
@@ -175,10 +182,6 @@ LEGACY_MIGRATIONS = (
                 nom,
                 username,
                 secret,
-                type_credential,
-                host,
-                port,
-                note,
                 is_encrypted,
                 created_at,
                 updated_at
@@ -189,10 +192,6 @@ LEGACY_MIGRATIONS = (
                 libelle,
                 identifiant,
                 mot_de_passe,
-                '',
-                '',
-                NULL,
-                '',
                 0,
                 created_at,
                 created_at
@@ -219,6 +218,20 @@ def _table_row_count(cursor, table_name):
     return 0 if not row else row["total"]
 
 
+def _column_exists(cursor, table_name, column_name):
+    cursor.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = %s
+          AND column_name = %s
+        """,
+        (table_name, column_name),
+    )
+    return cursor.fetchone() is not None
+
+
 def _migrate_legacy_tables(cursor):
     for migration in LEGACY_MIGRATIONS:
         if not _table_exists(cursor, migration["legacy_table"]):
@@ -240,6 +253,30 @@ def _migrate_legacy_tables(cursor):
             cursor.execute(f"DROP TABLE {migration['legacy_table']}")
 
 
+def _drop_unused_columns(cursor):
+    for table_name, column_names in UNUSED_COLUMNS.items():
+        if not _table_exists(cursor, table_name):
+            continue
+        for column_name in column_names:
+            if not _column_exists(cursor, table_name, column_name):
+                continue
+            cursor.execute(
+                f"ALTER TABLE `{table_name}` DROP COLUMN `{column_name}`"
+            )
+
+
+def _ensure_user_columns(cursor):
+    if not _table_exists(cursor, "utilisateurs"):
+        return
+
+    for column_name, column_definition in USER_COLUMNS:
+        if _column_exists(cursor, "utilisateurs", column_name):
+            continue
+        cursor.execute(
+            f"ALTER TABLE utilisateurs ADD COLUMN `{column_name}` {column_definition}"
+        )
+
+
 def ensure_dashboard_tables():
     global _dashboard_schema_ready
     if _dashboard_schema_ready:
@@ -251,7 +288,9 @@ def ensure_dashboard_tables():
     try:
         for statement in TABLE_DEFINITIONS:
             cursor.execute(statement)
+        _ensure_user_columns(cursor)
         _migrate_legacy_tables(cursor)
+        _drop_unused_columns(cursor)
         conn.commit()
         _dashboard_schema_ready = True
     finally:

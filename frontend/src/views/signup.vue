@@ -11,6 +11,7 @@ const formData = ref({
   username: '',
   email: '',
   password: '',
+  expiration_hours: '',
 })
 
 const errorMessage = ref('')
@@ -38,7 +39,7 @@ const onSubmit = async (event) => {
       return
     }
 
-    errorMessage.value = "Echec de la creation de compte."
+    errorMessage.value = data.message || "Echec de la creation de compte."
   } catch (error) {
     errorMessage.value = "Erreur lors de la creation du compte."
   } finally {
@@ -103,6 +104,16 @@ const onSubmit = async (event) => {
             type="password"
             v-model="formData.password"
             required
+            class="form-control"
+          />
+
+          <label for="expiration_hours">expiration invite en heures</label>
+          <input
+            id="expiration_hours"
+            type="number"
+            min="1"
+            v-model="formData.expiration_hours"
+            placeholder="optionnel: 2"
             class="form-control"
           />
 

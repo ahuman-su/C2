@@ -17,16 +17,6 @@ def _clean_text(value):
         return ""
     return str(value).strip()
 
-
-def _clean_port(value):
-    if value in (None, ""):
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _clean_bool(value):
     if isinstance(value, bool):
         return int(value)
@@ -86,7 +76,6 @@ def _storage_payload(user_id):
                 id,
                 titre,
                 commande AS contenu,
-                description,
                 type_shell AS langage,
                 type_shell,
                 created_at,
@@ -127,7 +116,6 @@ def _storage_payload(user_id):
                 id,
                 titre,
                 contenu,
-                contexte,
                 created_at,
                 updated_at
             FROM note
@@ -148,10 +136,6 @@ def _storage_payload(user_id):
                 username,
                 secret AS mot_de_passe,
                 secret,
-                type_credential,
-                host,
-                port,
-                note,
                 is_encrypted,
                 created_at,
                 updated_at
@@ -186,7 +170,6 @@ def create_snippet():
     data = request.get_json(silent=True) or {}
     titre = _clean_text(data.get("title"))
     commande = _clean_text(data.get("content") or data.get("commande"))
-    description = _clean_text(data.get("description"))
     type_shell = _clean_text(data.get("type_shell") or data.get("language"))
     tags = _clean_tags(data.get("tags"))
     user_id = _current_user_id()
@@ -200,10 +183,10 @@ def create_snippet():
     try:
         cursor.execute(
             """
-            INSERT INTO command_snippet (id_proprietaire, titre, commande, description, type_shell)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO command_snippet (id_proprietaire, titre, commande, type_shell)
+            VALUES (%s, %s, %s, %s)
             """,
-            (user_id, titre, commande, description, type_shell),
+            (user_id, titre, commande, type_shell),
         )
         snippet_id = cursor.lastrowid
 
@@ -241,7 +224,6 @@ def create_note():
     data = request.get_json(silent=True) or {}
     titre = _clean_text(data.get("title"))
     contenu = _clean_text(data.get("content"))
-    contexte = _clean_text(data.get("context") or data.get("contexte"))
 
     if not titre or not contenu:
         return jsonify({"message": "Le titre et le contenu de la note sont requis."}), 400
@@ -252,10 +234,10 @@ def create_note():
     try:
         cursor.execute(
             """
-            INSERT INTO note (id_proprietaire, titre, contenu, contexte)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO note (id_proprietaire, titre, contenu)
+            VALUES (%s, %s, %s)
             """,
-            (_current_user_id(), titre, contenu, contexte),
+            (_current_user_id(), titre, contenu),
         )
         conn.commit()
     finally:
@@ -273,10 +255,6 @@ def create_password():
     nom = _clean_text(data.get("label") or data.get("nom"))
     username = _clean_text(data.get("username"))
     secret = _clean_text(data.get("password") or data.get("secret"))
-    type_credential = _clean_text(data.get("type_credential"))
-    host = _clean_text(data.get("host"))
-    port = _clean_port(data.get("port"))
-    note_text = _clean_text(data.get("note"))
     is_encrypted = _clean_bool(data.get("is_encrypted"))
 
     if not nom or not secret:
@@ -293,23 +271,15 @@ def create_password():
                 nom,
                 username,
                 secret,
-                type_credential,
-                host,
-                port,
-                note,
                 is_encrypted
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 _current_user_id(),
                 nom,
                 username,
                 secret,
-                type_credential,
-                host,
-                port,
-                note_text,
                 is_encrypted,
             ),
         )

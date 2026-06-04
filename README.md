@@ -110,9 +110,9 @@ Toutes les routes `/dashboard/*` exigent len-tete `Authorization: Bearer <token>
 - `shell` : `id`, `id_proprietaire`, `nom`, `type_shell` (cle etrangere vers `utilisateurs.id`).
 - `shell_command_log` : `id`, `shell_id`, `id_proprietaire`, `commande`, `sortie`, `created_at`.
 - `shell_machine_info` : `id`, `shell_id`, `id_proprietaire`, `id_output`, `groups_output`, `users_output`, `uname_output`, `raw_payload`, `created_at`, `updated_at`.
-- `command_snippet` : `id`, `id_proprietaire`, `titre`, `commande`, `description`, `type_shell`, `created_at`, `updated_at`.
-- `note` : `id`, `id_proprietaire`, `titre`, `contenu`, `contexte`, `created_at`, `updated_at`.
-- `credential` : `id`, `id_proprietaire`, `nom`, `username`, `secret`, `type_credential`, `host`, `port`, `note`, `is_encrypted`, `created_at`, `updated_at`.
+- `command_snippet` : `id`, `id_proprietaire`, `titre`, `commande`, `type_shell`, `created_at`, `updated_at`.
+- `note` : `id`, `id_proprietaire`, `titre`, `contenu`, `created_at`, `updated_at`.
+- `credential` : `id`, `id_proprietaire`, `nom`, `username`, `secret`, `is_encrypted`, `created_at`, `updated_at`.
 - `snippet_tag` : `id`, `id_proprietaire`, `libelle`.
 - `snippet_tag_link` : `snippet_id`, `tag_id` (cle primaire composite).
 
